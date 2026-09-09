@@ -17,11 +17,28 @@
   html { scrollbar-width: none; }
   html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; }
 
+  /* ---------- 文渊黑体（基于思源黑体，SIL OFL 1.1，免费商用） ---------- */
+  /* 子集化：GB2312 一级字 3755 + 站点用字 + ASCII，两档共约 1.07MB */
+  @font-face {
+    font-family: "WenYuan Sans SC";
+    src: url("fonts/WenYuanSansSC-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "WenYuan Sans SC";
+    src: url("fonts/WenYuanSansSC-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
   body {
     margin: 0;
     background: #fff;
     color: #111;
-    font-family: "MS PGothic", "Microsoft YaHei", sans-serif;
+    font-family: "WenYuan Sans SC", "MS PGothic", "Microsoft YaHei", sans-serif;
   }
   .sm-logo { visibility: hidden; }
 
