@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>跑团站组件库 Demo</title>
+<link rel="stylesheet" href="components/accordion-gallery.css">
+<link rel="stylesheet" href="components/option-wheel.css">
+<link rel="stylesheet" href="components/staggered-menu.css">
+<link rel="stylesheet" href="components/flowing-menu.css">
+<link rel="stylesheet" href="components/media-between-text.css">
+<style>
+  body {
+    margin: 0;
+    padding: 40px 24px 80px;
+    background: #0a0713;
+    color: #e8e8f0;
+    font-family: "MS PGothic", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 15px; letter-spacing: 2px; color: #9f9fd8; text-transform: uppercase; }
+  h2 { font-size: 12px; color: #6f6fa8; margin: 48px 0 12px; letter-spacing: 1px; }
+  p.note { font-size: 11px; color: #6f6fa8; }
+  .wheel-box { position: relative; height: 320px; margin-top: 8px; }
+  .wheel-hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 10px; color: #4a4a7a; pointer-events: none; letter-spacing: 2px; }
+  #wheelResult { margin-top: 10px; font-size: 11px; color: #8f8fc8; }
+
+  /* MediaBetweenText demo styles */
+  .mbt-demo-a {
+    cursor: pointer;
+    color: #ff5941;
+    text-transform: lowercase;
+    font-weight: 300;
+    font-size: 24px;
+  }
+  .mbt-demo-a .mbt-media { height: 30px; margin: 4px 1px 0; }
+  @media (min-width: 640px) {
+    .mbt-demo-a { font-size: 60px; }
+    .mbt-demo-a .mbt-media { height: 100px; margin: 16px 8px 0; }
+  }
+
+  .mbt-demo-scroll-row {
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 300;
+    color: #fff;
+  }
+  .mbt-demo-scroll-row .mbt-media { height: 40px; margin: 4px 4px 0; }
+  @media (min-width: 640px) {
+    .mbt-demo-scroll-row { font-size: 36px; }
+    .mbt-demo-scroll-row .mbt-media { height: 80px; margin: 16px 12px 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>跑团站组件库 / demo</h1>
+  <p class="note">开源组件已移植为 vanilla JS（部分动画用本地 GSAP），双击本文件即可预览。</p>
+  <p class="note">横向滚轮展示动画参考：<a href="https://normalisboring.es/" target="_blank" rel="noreferrer" style="color:#8f8fc8;">normalisboring.es</a></p>
+
+  <h2>排版参考（我的草图）</h2>
+  <img src="images/layout-sketch.png" alt="排版参考草图" style="max-width:100%; border:1px solid #2a2a3a; display:block;">
+  <p class="note">自己想的一个排版，先放进来当参考。</p>
+
+  <h2>待实装点子 · 方块头像 → 背景蔓延</h2>
+  <img src="images/avatar-spread-sketch.png" alt="方块头像背景蔓延示意" style="max-width:100%; border:1px solid #2a2a3a; display:block;">
+  <p class="note">点一个方形头像 → 背景像一滩液滴（硬边界、纯色）从它蔓延糊满全屏，露出背后的立绘 gif；头像固定在原位。还没有实装，只是个点子，留档备用。</p>
+  <p class="note">详细设计待定项见 <a href="ideas/avatar-backdrop-spread-idea.md" target="_blank" rel="noreferrer" style="color:#8f8fc8;">ideas/avatar-backdrop-spread-idea.md</a></p>
+
+  <h2>AccordionGallery（手风琴画廊）</h2>
+  <div id="gallery"></div>
+  <p class="note">悬停/点击切换面板，支持键盘方向键。参数：trigger、orientation、grayscale、expandRatio 等。</p>
+
+  <h2>OptionWheel（弧形选择轮）</h2>
+  <div class="wheel-box">
+    <div id="wheel" style="position:absolute; inset:0;"></div>
+    <div class="wheel-hint">SCROLL · DRAG</div>
+  </div>
+  <div id="wheelResult">当前选择：—</div>
+  <p class="note">滚轮/拖拽/点击/方向键均可，适合选「音乐氛围」「地点」之类的场景。</p>
+
+  <h2>StaggeredMenu（交错式菜单）</h2>
+  <div id="menuBox" style="position:relative; height:520px; background:#0a0713; overflow:hidden; border:1px solid #2a2a3a;"></div>
+  <p class="note">右上角 Menu 按钮 → 多层色块交错滑入 + 菜单项逐个入场；点击面板外部自动关闭。</p>
+
+  <h2>FlowingMenu（流动菜单）</h2>
+  <div id="flowingMenu" style="height:420px; border:1px solid #2a2a3a;"></div>
+  <p class="note">鼠标进入菜单项时，跑马灯从靠近的一侧滑入并横向滚动；适合做导航/索引页。</p>
+
+  <h2>MediaBetweenText（文字间媒体展开）</h2>
+  <div id="mbtDemo" class="mbt-demo-a" style="min-height:220px;"></div>
+  <p class="note">悬停时文字中间的媒体块从 0 宽度展开；移动端窄、桌面宽。</p>
+
+  <h2>MediaBetweenText · Scroll（滚动触发版）</h2>
+  <div id="mbtScroll" style="height:480px; overflow:auto; border:1px solid #2a2a3a; background:#0a0713;">
+    <div style="height:100%; position:relative;">
+      <h3 style="position:absolute; left:16px; bottom:16px; width:256px; font-size:28px; color:#fff; margin:0;">today's inspo</h3>
+      <p style="position:absolute; right:16px; bottom:16px; color:#6f6fa8; font-size:11px;">Scroll down ↓</p>
+    </div>
+    <div id="mbtScrollList" style="display:flex; flex-direction:column; gap:48px; align-items:center; justify-content:center; padding:96px 24px 24px; min-height:100%;"></div>
+  </div>
+  <p class="note">视频块滚入视野时展开、滚出时收起；视频用外链 mp4，正式用换本地。</p>
+</div>
+
+<script src="libs/gsap.min.js"></script>
+<script src="components/accordion-gallery.js"></script>
+<script src="components/option-wheel.js"></script>
+<script src="components/staggered-menu.js"></script>
+<script src="components/flowing-menu.js"></script>
+<script src="components/media-between-text.js"></script>
+<script>
+  AccordionGallery.create(document.getElementById('gallery'), [
+    { image: 'https://picsum.photos/id/1015/900/1200', label: 'Canyon', link: '#' },
+    { image: 'https://picsum.photos/id/1018/900/1200', label: 'Ridgeline', link: '#' },
+    { image: 'https://picsum.photos/id/1039/900/1200', label: 'Falls', link: '#' },
+    { image: 'https://picsum.photos/id/1043/900/1200', label: 'Harbour', link: '#' },
+    { image: 'https://picsum.photos/id/1044/900/1200', label: 'Skyline', link: '#' }
+  ], { defaultIndex: 2, trigger: 'hover' });
+
+  var wheelItems = [
+    'Ambient', 'House', 'Techno', 'Jazz', 'Lo-Fi', 'Synthwave',
+    'Trance', 'Funk', 'Disco', 'Hip-Hop', 'Chillwave', 'Drum & Bass'
+  ];
+  var wheel = OptionWheel.create(document.getElementById('wheel'), wheelItems, {
+    defaultSelected: 2,
+    textColor: '#a6a6a6',
+    activeColor: '#ffffff',
+    side: 'right',
+    fontSize: 1.9,
+    spacing: 1.85,
+    curve: 2,
+    tilt: 6,
+    blur: 1.5,
+    fade: 0.35,
+    smoothing: 200,
+    inset: 64,
+    loop: true,
+    draggable: true,
+    // soundUrl: 'sounds/click-soft.mp3', // 有声音文件时取消注释即可
+    soundVolume: 0.35,
+    onChange: function (idx, label) {
+      document.getElementById('wheelResult').textContent = '当前选择：' + label;
+    }
+  });
+  document.getElementById('wheelResult').textContent =
+    '当前选择：' + wheelItems[wheel.getSelected()];
+
+  StaggeredMenu.create(document.getElementById('menuBox'), {
+    position: 'left',
+    colors: ['#FF4D9D', '#FF0374'],
+    items: [
+      { label: 'Home', link: '#home' },
+      { label: 'World', link: '#world' },
+      { label: 'Characters', link: '#characters' },
+      { label: 'Rules', link: '#rules' },
+      { label: 'Log', link: '#log' }
+    ],
+    socialItems: [
+      { label: 'X', link: 'https://x.com' },
+      { label: 'Tumblr', link: 'https://tumblr.com' }
+    ],
+    displaySocials: true,
+    displayItemNumbering: true,
+    logoUrl: '',
+    menuButtonColor: '#ffffff',
+    openMenuButtonColor: '#FF0374',
+    accentColor: '#FF0374',
+    changeMenuColorOnOpen: true,
+    isFixed: false,
+    closeOnClickAway: true,
+    onMenuOpen: function () { console.log('menu open'); },
+    onMenuClose: function () { console.log('menu close'); }
+  });
+
+  FlowingMenu.create(document.getElementById('flowingMenu'), {
+    items: [
+      { link: '#world', text: 'World', image: 'https://picsum.photos/id/1015/400/200' },
+      { link: '#characters', text: 'Characters', image: 'https://picsum.photos/id/1018/400/200' },
+      { link: '#rules', text: 'Rules', image: 'https://picsum.photos/id/1039/400/200' }
+    ],
+    speed: 15,
+    textColor: '#ffffff',
+    bgColor: '#120F17',
+    marqueeBgColor: '#ffffff',
+    marqueeTextColor: '#120F17',
+    borderColor: '#ffffff'
+  });
+
+  // --- MediaBetweenText: hover demo ---
+  MediaBetweenText.create(document.getElementById('mbtDemo'), {
+    firstText: "that's a nice (",
+    secondText: ') chair!',
+    mediaUrl: 'https://picsum.photos/id/1060/600/300',
+    mediaType: 'image',
+    triggerType: 'hover',
+    animationVariants: {
+      initial: { width: 0, opacity: 1 },
+      animate: {
+        width: function () { return window.innerWidth >= 640 ? 100 : 30; },
+        opacity: 1,
+        transition: { duration: 0.4 }
+      }
+    }
+  });
+
+  // --- MediaBetweenText: scroll (inView) demo ---
+  (function () {
+    var scrollRoot = document.getElementById('mbtScroll');
+    var list = document.getElementById('mbtScrollList');
+    var elements = [
+      { src: 'https://cdn.cosmos.so/53454cbe-a4ec-4782-923f-a82d70e12645.mp4', left: 'Tim', right: 'Rodenböker', url: 'https://www.instagram.com/tim_rodenbroeker/' },
+      { src: 'https://cdn.cosmos.so/499ddb3b-57cf-4c07-996c-f797fadf64ab.mp4', left: 'Simon', right: 'Alexander-Adams', url: 'https://www.instagram.com/polyhop/' },
+      { src: 'https://cdn.cosmos.so/444e4a2a-45a6-477f-b342-6b6bc9a7c53b.mp4', left: 'Andreion', right: 'de Castro', url: 'https://www.instagram.com/andreiongd/' },
+      { src: 'https://cdn.cosmos.so/f533f1a8-9f67-4360-b395-7abc8594cac9.mp4', left: 'Lorraine', right: 'Li', url: 'https://www.instagram.com/lorrr.l/' }
+    ];
+    elements.forEach(function (el) {
+      var row = document.createElement('a');
+      row.href = el.url;
+      row.target = '_blank';
+      row.rel = 'noreferrer';
+      row.className = 'mbt-demo-scroll-row';
+      list.appendChild(row);
+      MediaBetweenText.create(row, {
+        firstText: el.left,
+        secondText: el.right,
+        mediaUrl: el.src,
+        mediaType: 'video',
+        triggerType: 'inView',
+        root: scrollRoot,
+        inViewOptions: { once: false, amount: 1, root: scrollRoot, margin: '-5% 0px 0px 0px' },
+        animationVariants: {
+          initial: { width: 0, opacity: 1 },
+          animate: {
+            width: function () { return window.innerWidth >= 640 ? 120 : 60; },
+            opacity: 1,
+            transition: { duration: 0.4 }
+          }
+        }
+      });
+    });
+  })();
+</script>
+</body>
+</html>

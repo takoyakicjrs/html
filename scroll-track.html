@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>横向轨道 · 视差原型</title>
+<link rel="stylesheet" href="components/option-wheel.css">
+<link rel="stylesheet" href="components/staggered-menu.css">
+<style>
+  :root { --band: 220px; --band-top: 0px; }
+
+  /* 组件 CSS 按 border-box 写（header 用 width:100% + padding），没这个 reset 菜单按钮会被顶出屏 */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { scrollbar-width: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; }
+  body {
+    margin: 0;
+    background: #0a0713;
+    color: #e8e8f0;
+    font-family: "MS PGothic", "Microsoft YaHei", sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* 菜单 LOGO 占位（保留位置，按钮才停在右上角） */
+  .sm-logo { visibility: hidden; }
+
+  /* ---- 固定舞台：横向轨道在里面滑，页面高度只负责产生滚动量 ---- */
+  .stage { position: fixed; inset: 0; overflow: hidden; z-index: 1; }
+
+  .layer { position: absolute; top: 0; left: 0; height: 100%; }
+  .track { position: absolute; top: 0; left: 0; height: 100%; will-change: transform; }
+
+  /* ---- 竖条：草图（1009×903、8 个横块左右交错）转 90° 之后的「列」 ---- */
+  .slat {
+    position: absolute;
+    overflow: hidden;
+    background: #120F17;
+    border: 1px solid #1b1826;
+  }
+  .slat > i {
+    position: absolute; top: 0; left: -25%;
+    width: 150%; height: 100%;
+    background-size: cover;
+    background-position: center;
+    filter: saturate(.5) brightness(.6) contrast(1.05);
+  }
+
+  /* ---- 背景层：超大的部分名，跑得最慢 ---- */
+  .bg-item { position: absolute; top: 0; height: 100%; }
+  .bg-word {
+    position: absolute; left: 0; top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 15vh; line-height: 1; letter-spacing: .06em;
+    color: #16121f; white-space: nowrap; user-select: none;
+  }
+
+  /* ---- 文字层：序号 + 名字，跑得最快 ---- */
+  .fg-item { position: absolute; top: 0; height: 100%; }
+  .fg-meta { position: absolute; left: 0; font-size: 11px; letter-spacing: 4px; color: #B497CF; white-space: nowrap; }
+  .fg-meta::before { content: ''; display: block; width: 46px; height: 1px; background: #FF0374; margin-bottom: 10px; }
+  .fg-meta b { display: block; margin-top: 6px; font-size: 19px; letter-spacing: 2px; color: #e8e8f0; }
+
+  /* ---- 顶部悬挂的 OptionWheel（常驻，当「滑到哪一部分」的指示器） ---- */
+  .wheel-hang {
+    position: fixed; left: 0; top: var(--band-top);
+    width: var(--band); height: 100vmax;
+    transform-origin: 0 0;
+    transform: translate(0, var(--band)) rotate(-90deg);
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="layer" id="bgLayer"></div>
+  <div class="track" id="track"></div>
+  <div class="layer" id="fgLayer"></div>
+</div>
+
+<div class="wheel-hang"><div id="wheel" style="position:absolute; inset:0;"></div></div>
+<div id="menu"></div>
+
+<script src="libs/gsap.min.js"></script>
+<script src="components/option-wheel.js"></script>
+<script src="components/staggered-menu.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ===== 内容 =====
+  var SECTIONS = ['World', 'Characters', 'Gallery', 'Mood', 'Log', 'Rules', 'Table', 'Contact'];
+  // 每个部分几根竖条（草图里一个构图是 8 根，这里 6 根：轨道长度落在 2 屏左右，不会滚到烦）
+  var COLS_PER_SECTION = 6;
+
+  // 素材：F:\跑团相关\素材\背景图片 里随手挑的 8 张，换图只改这个数组
+  var IMG_DIR = 'file:///F:/跑团相关/素材/背景图片/';
+  var IMGS = [
+    'rain-g9aaed0ae6_1280.jpg',
+    'puddle-g3da1a08b7_1280.jpg',
+    'city-gfc0636cde_1280.jpg',
+    'woman-g358ac647a_1280.jpg',
+    'traffic-lights-g92c24206d_1280.jpg',
+    'architecture-ga20d75fae_1920.jpg',
+    'neven-krcmarek-9dTg44Qhx1Q-unsplash.jpg',
+    'concrete_cracked_2051_2511_Small.jpg'
+  ];
+
+  // ===== 草图量出来的比例（1009×903；块 552×77.5；间距 21；上下错位 264）=====
+  var R_SLAT = 77.5 / 552;   // 条宽 / 条高
+  var R_GAP  = 21 / 77.5;    // 间距 / 条宽
+  var R_STAG = 264 / 552;    // 上下错位 / 条高
+
+  // ===== 视差强度：正数 = 跑得比轨道快，负数 = 跑得慢 =====
+  var K_BG  = -0.30;   // 背景大字（最慢）
+  var K_FG  =  0.45;   // 前景小字（最快）
+  var K_IMG =  0.55;   // 竖条内部图片的横向漂移（上限 = K_IMG × 条宽）
+
+  var track   = document.getElementById('track');
+  var bgLayer = document.getElementById('bgLayer');
+  var fgLayer = document.getElementById('fgLayer');
+
+  var vw, vh, H, W, G, P, STAG, TOP_A, TOP_B, SEC_W, TRACK_W, TRAVEL;
+  var slats = [], bgItems = [], fgItems = [];
+  var target = 0, cur = 0, ticking = false, wheelIdx = -1, rt = 0, syncing = false;
+
+  function measure() {
+    vw = window.innerWidth;
+    vh = window.innerHeight;
+    H     = Math.round(vh * 0.58);        // 竖条高（含错位后正好塞进一屏）
+    W     = Math.round(H * R_SLAT);       // 竖条宽
+    G     = Math.round(W * R_GAP);        // 间距
+    P     = W + G;                        // 步距
+    STAG  = Math.round(H * R_STAG);       // 上下错位
+    TOP_A = Math.round(vh * 0.12);        // 靠上那排的顶
+    TOP_B = TOP_A + STAG;                 // 靠下那排的顶
+    SEC_W = COLS_PER_SECTION * P - G + Math.round(vh * 0.08);  // 一个部分的宽度（含部分间距）
+    TRACK_W = SECTIONS.length * SEC_W;
+    TRAVEL = Math.max(TRACK_W - vw, 1);   // 滚到底刚好走完
+  }
+
+  function build() {
+    measure();
+    track.innerHTML = ''; bgLayer.innerHTML = ''; fgLayer.innerHTML = '';
+    slats = []; bgItems = []; fgItems = []; wheelIdx = -1;
+
+    SECTIONS.forEach(function (name, si) {
+      var x0 = si * SEC_W;
+
+      // 竖条（图片循环用）
+      for (var c = 0; c < COLS_PER_SECTION; c++) {
+        var el = document.createElement('div');
+        el.className = 'slat';
+        el.style.cssText = 'left:' + (x0 + c * P) + 'px;top:' + (c % 2 ? TOP_B : TOP_A) +
+                           'px;width:' + W + 'px;height:' + H + 'px;';
+        var img = document.createElement('i');
+        img.style.backgroundImage = "url('" + encodeURI(IMG_DIR + IMGS[(si * COLS_PER_SECTION + c) % IMGS.length]) + "')";
+        el.appendChild(img);
+        track.appendChild(el);
+        slats.push({ img: img, cx: x0 + c * P + W / 2, on: false });
+      }
+
+      // 背景大字
+      var bgi = document.createElement('div');
+      bgi.className = 'bg-item';
+      bgi.style.left = (x0 + SEC_W * 0.5) + 'px';
+      var bgw = document.createElement('div');
+      bgw.className = 'bg-word';
+      bgw.textContent = name.toUpperCase();
+      bgi.appendChild(bgw);
+      bgLayer.appendChild(bgi);
+      bgItems.push({ el: bgi, x: x0 + SEC_W * 0.5 });
+
+      // 前景小字
+      var fgi = document.createElement('div');
+      fgi.className = 'fg-item';
+      fgi.style.left = (x0 + 26) + 'px';
+      var fgm = document.createElement('div');
+      fgm.className = 'fg-meta';
+      fgm.style.top = Math.round(vh * 0.24) + 'px';
+      fgm.innerHTML = '0' + (si + 1) + ' / 0' + SECTIONS.length + '<b>' + name.toUpperCase() + '</b>';
+      fgi.appendChild(fgm);
+      fgLayer.appendChild(fgi);
+      fgItems.push({ el: fgi, x: x0 + 26 });
+    });
+
+    track.style.width = TRACK_W + 'px';
+    bgLayer.style.width = TRACK_W + 'px';
+    fgLayer.style.width = TRACK_W + 'px';
+    document.body.style.height = (vh + TRAVEL) + 'px';
+
+    target = cur = Math.max(0, Math.min(1, window.scrollY / TRAVEL));
+    apply(cur * TRAVEL);
+  }
+
+  function apply(T) {
+    var mid = vw / 2, i, o, d;
+
+    track.style.transform = 'translate3d(' + (-T).toFixed(1) + 'px,0,0)';
+
+    for (i = 0; i < bgItems.length; i++) {
+      o = bgItems[i]; d = o.x - T - mid;
+      o.el.style.transform = 'translate3d(' + (d * K_BG).toFixed(1) + 'px,0,0)';
+    }
+    for (i = 0; i < fgItems.length; i++) {
+      o = fgItems[i]; d = o.x - T - mid;
+      o.el.style.transform = 'translate3d(' + (d * K_FG).toFixed(1) + 'px,0,0)';
+      // 越靠边越淡，免得小字被视口切掉半截
+      o.el.style.opacity = Math.max(0, 1 - Math.abs(d) / (vw * 0.5)).toFixed(2);
+    }
+    for (i = 0; i < slats.length; i++) {
+      o = slats[i]; d = o.cx - T - mid;
+      if (d < -vw * 1.2 || d > vw * 1.2) {
+        if (o.on) { o.img.style.transform = ''; o.on = false; }
+        continue;
+      }
+      o.on = true;
+      o.img.style.transform = 'translate3d(' +
+        (Math.max(-1, Math.min(1, d / mid)) * W * K_IMG).toFixed(1) + 'px,0,0)';
+    }
+
+    // 顶部轮子 = 指示器：按滚动进度切到第几个部分
+    var idx = Math.min(SECTIONS.length - 1, Math.floor((T / TRAVEL) * SECTIONS.length));
+    if (idx !== wheelIdx) { wheelIdx = idx; syncWheel(idx); }
+  }
+
+  function tick() {
+    cur += (target - cur) * 0.12;
+    if (Math.abs(target - cur) < 0.0004) cur = target;
+    apply(cur * TRAVEL);
+    if (cur !== target) requestAnimationFrame(tick);
+    else ticking = false;
+  }
+
+  function onScroll() {
+    target = Math.max(0, Math.min(1, window.scrollY / TRAVEL));
+    if (!ticking) { ticking = true; requestAnimationFrame(tick); }
+  }
+
+  function jumpTo(i) {
+    // 和指示器同一套映射：i/(N-1) 的进度位置
+    var top = (i / (SECTIONS.length - 1)) * TRAVEL;
+    window.scrollTo({ top: Math.max(0, Math.min(top, TRAVEL)), behavior: 'smooth' });
+  }
+
+  function syncWheel(idx) {
+    if (!wheel) return;
+    syncing = true;
+    wheel.select(idx);
+    syncing = false;
+  }
+
+  // ===== 顶部悬挂的轮子（常驻指示器）=====
+  var wheel = OptionWheel.create(document.getElementById('wheel'), SECTIONS, {
+    defaultSelected: 0,
+    side: 'right',             // 转成横排后 = 文字从屏幕顶边往下垂
+    fontSize: 1.5,
+    spacing: 1.9,
+    curve: 2,
+    tilt: 6,
+    blur: 1.5,
+    fade: 0.35,
+    smoothing: 200,
+    inset: 48,                 // 贴顶：文字上端离屏幕顶边 48px
+    loop: true,
+    draggable: true,
+    dragAxis: 'x',             // 轮子转了 90°，拖拽轴换成横向
+    captureWheel: false,       // 滚轮事件让给页面自己滚（点/拖照旧）
+    onChange: function (idx) { if (!syncing) jumpTo(idx); }
+  });
+
+  // ===== 右上角菜单（常驻）=====
+  var menuEl = document.getElementById('menu');
+  StaggeredMenu.create(menuEl, {
+    position: 'left',
+    isFixed: true,
+    colors: ['#FF4D9D', '#FF0374'],
+    items: [
+      { label: 'Home', link: '#home' },
+      { label: 'World', link: '#world' },
+      { label: 'Characters', link: '#characters' },
+      { label: 'Rules', link: '#rules' },
+      { label: 'Log', link: '#log' }
+    ],
+    socialItems: [
+      { label: 'X', link: 'https://x.com' },
+      { label: 'Tumblr', link: 'https://tumblr.com' }
+    ],
+    displaySocials: true,
+    displayItemNumbering: true,
+    menuButtonColor: '#ffffff',
+    openMenuButtonColor: '#FF0374',
+    accentColor: '#FF0374',
+    changeMenuColorOnOpen: true,
+    closeOnClickAway: true
+  });
+
+  // 菜单项点了跳到对应部分（按名字匹配，没匹配上就回第一屏）
+  Array.prototype.forEach.call(menuEl.querySelectorAll('.sm-panel-item'), function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var txt = (a.textContent || '').toUpperCase(), idx = 0;
+      SECTIONS.forEach(function (n, k) { if (txt.indexOf(n.toUpperCase()) >= 0) idx = k; });
+      jumpTo(idx);
+    });
+  });
+
+  // ===== 启动 =====
+  build();
+  // 带 #数字 打开就直接滚到那个位置（截图/深链用，例如 scroll-track.html#1400）
+  if (/^#\d+$/.test(location.hash)) {
+    window.scrollTo(0, parseInt(location.hash.slice(1), 10));
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', function () {
+    clearTimeout(rt);
+    rt = setTimeout(build, 160);
+  });
+  onScroll();
+})();
+</script>
+</body>
+</html>

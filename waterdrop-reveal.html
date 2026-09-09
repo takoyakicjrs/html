@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>液滴蔓延揭示 · v2</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #14141a; }
+  #stage { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #14141a; }
+  /* 底层内容: 被液滴蒙版裁切, 初始只露左上角一个小窗口(头像) */
+  #gif {
+    position: absolute; inset: 0;
+    background: #22222d;
+    clip-path: url(#drop);
+    cursor: pointer;
+  }
+  #gif canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* 头像窗口示意标签 —— 硬边, 无渐变无阴影 */
+  .avatar-tag {
+    position: absolute; left: 140px; top: 140px; width: 92px; height: 92px;
+    transform: translate(-50%, -50%);
+    border: 1px solid #4a4a56; border-radius: 0;
+    color: #9a9aa8; font: 12px/1.4 system-ui;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; opacity: .8;
+  }
+  #hint {
+    position: fixed; left: 18px; bottom: 16px; color: #8a8a96;
+    font: 13px/1.6 system-ui; user-select: none; max-width: 64ch;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="gif"><canvas id="cv" width="1600" height="900"></canvas></div>
+  <div class="avatar-tag">头像<br>(点这里)</div>
+</div>
+<div id="hint">点击左上角头像 → 一滩液滴(顶边平、下缘圆、硬边界)从方块处朝右下摊开、糊满整屏；gif 眨眼动画独立播放。粗糙版。</div>
+
+<!-- 液滴形蒙版: 左上角在原点, 向右下摊开的"水滴" -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <clipPath id="drop" clipPathUnits="userSpaceOnUse">
+      <path id="dropPath"
+        d="M0,0 L320,0 C 320,150 250,340 160,340 C 70,340 0,150 0,0 Z"
+        transform="scale(0.05)" />
+    </clipPath>
+  </defs>
+</svg>
+
+<script>
+(() => {
+  const gif = document.getElementById('gif');
+  const pathEl = document.getElementById('dropPath');
+  const cv  = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+
+  // ---- 液滴蒙版: 左上角(原点)固定, scale 从很小胀大糊满全屏 ----
+  const S0 = 0.05;                 // 初始很小 = 头像窗口
+  const SMAX = 30;                 // 足够大覆盖整屏
+  let start = null;
+  const DUR = 1500;
+  const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+  gif.addEventListener('click', () => {
+    if (start === null) { start = performance.now(); t = 0; done = false; }
+  });
+
+  // ---- gif 内容: 眨眼 → 睁眼立绘, 播一次定格 (独立于蒙版) ----
+  let t = 0, opening = 1, done = false;
+  const BLINK = 0.32, OPEN = 1.35;
+
+  function drawEye(cy, dx, h){
+    ctx.fillStyle = '#1b1b24';
+    const eh = Math.max(2, h);
+    ctx.fillRect(W*0.50 + dx - h*0.5, cy - eh, h*1.0, eh*2);
+  }
+  function drawFace(op){
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#2b2b38'; ctx.fillRect(W*0.30, H*0.12, W*0.40, H*0.76);
+    ctx.fillStyle = '#e8c7a9'; ctx.beginPath(); ctx.arc(W*0.50, H*0.34, H*0.155, 0, Math.PI*2); ctx.fill();
+    const eyeDx = H*0.058, eyeY = H*0.335, eyeH = H*0.028 * op;
+    drawEye(eyeY, -eyeDx, eyeH); drawEye(eyeY, +eyeDx, eyeH);
+    ctx.fillStyle = '#1b1b24'; ctx.fillRect(W*0.50 - H*0.045, H*0.46, H*0.09, H*0.010);
+  }
+
+  let last = performance.now();
+  function tick(now){
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+
+    // 液滴蒙版 scale(独立)
+    if (start !== null){
+      const p = Math.min(1, (now - start) / DUR);
+      const s = S0 + (SMAX - S0) * ease(p);
+      pathEl.setAttribute('transform', `scale(${s.toFixed(4)})`);
+      if (p >= 1) start = null;
+    }
+
+    // gif 动画(独立)
+    if (!done){
+      t += dt;
+      if (t < BLINK) opening = 0.12;
+      else if (t < BLINK + OPEN) opening = Math.min(1, (t - BLINK) / OPEN);
+      else { opening = 1; done = true; }
+    }
+    drawFace(opening);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

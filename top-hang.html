@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OptionWheel · 顶部悬挂原型</title>
+<link rel="stylesheet" href="components/option-wheel.css">
+<link rel="stylesheet" href="components/staggered-menu.css">
+<style>
+  :root {
+    /* 悬挂带的厚度：轮子转 90° 后，这条带子就是它的裁剪框 */
+    --band: 220px;
+    /* 带子离屏幕顶边的距离 */
+    --band-top: 0px;
+  }
+  html, body { height: 100%; }
+  /* 组件的 CSS 是按 border-box 写的（header 用 width:100% + padding），
+     页面没有全局 reset 的话菜单按钮会被顶到屏幕外，所以这里补上。 */
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0a0713;
+    color: #e8e8f0;
+    font-family: "MS PGothic", "Microsoft YaHei", sans-serif;
+  }
+
+  /* 这页只测两个组件，菜单的 LOGO 占位文字先不显示（用 visibility 保留占位，按钮才会留在右上角） */
+  .sm-logo { visibility: hidden; }
+
+  /* ---- 顶部悬挂的 OptionWheel ----
+     原轮子是一列竖排项；把整块容器 rotate(-90deg) 后，竖列变成横排、
+     文字变成竖着读（从下往上），并贴着屏幕顶边挂下来。
+     容器自身尺寸 = 「宽 220px × 高 100vmax」，转 90° 后正好铺满整个屏宽。 */
+  .wheel-hang {
+    position: fixed;
+    left: 0;
+    top: var(--band-top);
+    width: var(--band);
+    height: 100vmax;
+    transform-origin: 0 0;
+    transform: translate(0, var(--band)) rotate(-90deg);
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<div class="wheel-hang" id="wheelHang">
+  <div id="wheel" style="position:absolute; inset:0;"></div>
+</div>
+
+<div id="menu"></div>
+
+<script src="libs/gsap.min.js"></script>
+<script src="components/option-wheel.js"></script>
+<script src="components/staggered-menu.js"></script>
+<script>
+(function () {
+  var ITEMS = ['World', 'Characters', 'Gallery', 'Mood', 'Log', 'Rules', 'Table', 'Contact'];
+
+  var host = document.getElementById('wheel');
+
+  OptionWheel.create(host, ITEMS, {
+    defaultSelected: 3,
+    side: 'right',             // 转成横排后 = 文字从屏幕顶边往下垂
+    fontSize: 1.5,
+    spacing: 1.9,
+    curve: 2,
+    tilt: 6,
+    blur: 1.5,
+    fade: 0.35,
+    smoothing: 200,
+    inset: 48,                 // 贴顶：文字上端离屏幕顶边 48px，想往下压就调大
+    loop: true,
+    draggable: true,
+    dragAxis: 'x'              // 轮子转了 90°，拖拽轴跟着换成横向
+  });
+
+  StaggeredMenu.create(document.getElementById('menu'), {
+    position: 'left',
+    isFixed: true,
+    colors: ['#FF4D9D', '#FF0374'],
+    items: [
+      { label: 'Home', link: '#home' },
+      { label: 'World', link: '#world' },
+      { label: 'Characters', link: '#characters' },
+      { label: 'Rules', link: '#rules' },
+      { label: 'Log', link: '#log' }
+    ],
+    socialItems: [
+      { label: 'X', link: 'https://x.com' },
+      { label: 'Tumblr', link: 'https://tumblr.com' }
+    ],
+    displaySocials: true,
+    displayItemNumbering: true,
+    menuButtonColor: '#ffffff',
+    openMenuButtonColor: '#FF0374',
+    accentColor: '#FF0374',
+    changeMenuColorOnOpen: true,
+    closeOnClickAway: true
+  });
+})();
+</script>
+</body>
+</html>

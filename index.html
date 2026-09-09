@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>站点骨架 · 白</title>
+<link rel="stylesheet" href="components/option-wheel.css">
+<link rel="stylesheet" href="components/staggered-menu.css">
+<link rel="stylesheet" href="libs/locomotive-scroll.css">
+<style>
+  :root {
+    /* 顶部悬挂带的厚度：轮子转 90° 后，这条带子就是它的裁剪框 */
+    --band: 220px;
+    --band-top: 0px;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scrollbar-width: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { width: 0; height: 0; }
+
+  body {
+    margin: 0;
+    background: #fff;
+    color: #111;
+    font-family: "MS PGothic", "Microsoft YaHei", sans-serif;
+  }
+  .sm-logo { visibility: hidden; }
+
+  /* ---------- 主页：钉住的一屏，滚过就淡出（先空着） ---------- */
+  .home {
+    position: fixed; inset: 0; z-index: 3;
+    background: #fff;
+    will-change: opacity, transform;
+  }
+  .home .hint {
+    position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 5px; color: #c2c2c2; user-select: none;
+  }
+  .home .hint::before {
+    content: ''; display: block; width: 1px; height: 32px;
+    background: #ddd; margin: 0 auto 10px;
+  }
+
+  /* ---------- character：横向轨道（钉住，滚轮驱动） ---------- */
+  .stage { position: fixed; inset: 0; overflow: hidden; z-index: 2; }
+  .layer { position: absolute; top: 0; left: 0; height: 100%; will-change: transform; }
+
+  .slat { position: absolute; overflow: hidden; background: #efefef; will-change: transform; }
+  .slat > i {
+    position: absolute; top: 0; left: -75%; width: 250%; height: 100%;
+    background-size: cover; background-position: center;
+    will-change: transform;
+  }
+
+  .bg-word {
+    position: absolute; top: 50%;
+    font-size: 11vh; line-height: 1; letter-spacing: .03em;
+    color: #f2f2f2; white-space: nowrap; user-select: none;
+    will-change: transform;
+  }
+
+  .label { position: absolute; top: 0; height: 100%; will-change: transform; }
+  .label .box { position: absolute; left: 0; top: 50%; transform: translateY(-50%); white-space: nowrap; }
+  .label .rule { width: 44px; height: 1px; background: #111; margin-bottom: 14px; }
+  .label .idx { font-size: 10px; letter-spacing: 4px; color: #b0b0b0; }
+  .label .name { margin-top: 8px; font-size: 21px; letter-spacing: .02em; color: #111; }
+
+  /* ---------- 顶部悬挂的轮子（常驻区块指示器） ---------- */
+  .wheel-hang {
+    position: fixed;
+    left: 0;
+    top: var(--band-top);
+    width: var(--band);
+    height: 100vmax;
+    transform-origin: 0 0;
+    transform: translate(0, var(--band)) rotate(-90deg);
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<div class="home" id="home">
+  <div class="hint">SCROLL</div>
+</div>
+
+<div class="stage">
+  <div class="layer" id="bgLayer"></div>
+  <div class="layer" id="track"></div>
+  <div class="layer" id="fgLayer"></div>
+</div>
+
+<div class="wheel-hang" id="wheelHang">
+  <div id="wheel" style="position:absolute; inset:0;"></div>
+</div>
+
+<div id="menu"></div>
+
+<script src="libs/gsap.min.js"></script>
+<!-- Locomotive Scroll v5：内核是 Lenis，UMD 版靠 window.lenis 拿依赖，所以顺序不能反 -->
+<script src="libs/lenis.min.js"></script>
+<script>window.lenis = window.Lenis;</script>
+<script src="libs/locomotive-scroll.umd.js"></script>
+<script src="components/option-wheel.js"></script>
+<script src="components/staggered-menu.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ================= 可调参数 =================
+  var RATIO   = 9;      // 条宽 : 条高 = 1 : RATIO（用 ?r=6 / ?r=13 可以临时换档对比）
+  var H_R     = 0.48;   // 条高 = 0.48 × 视口高（比原来 0.58 短了十分之一）
+  var TOP_A_R = 0.14;   // 高条顶边
+  var TOP_B_R = 0.39;   // 低条顶边（和高条错开 25% 屏高）
+  var GAP_R   = 0.30;   // 条间距 = 0.30 × 条宽
+  var BLOCK_R = 0.50;   // 每个栏目块宽 = 0.50 × 视口宽
+  var GAPB_R  = 0.68;   // 相邻栏目块的起点间距 = 0.68 × 视口宽
+  var LABEL_X = 0.065;  // 块内：文字左端
+  var SLAT_X  = 0.30;   // 块内：条条组左端
+  var K_IMG   = [0.032, 0.078, 0.052];  // 每根条里的图 —— 移速差就靠这个
+  var K_LABEL = 0.050;  // 文字层
+  var K_BG    = 0.028;  // 背景大字层
+  // 滚轮呼吸：滚动中每根条以不同幅度横向散开，滚停自动收回原位
+  var SP_MAX = 18;                            // 单根最大散开 px（?sp=12 / ?sp=26 换档对比）
+  var SP_V   = 0.8;                           // 滚动速度(px/ms) 到「满散开」的换算：越小越容易散开（0.8 ≈ 800px/s 就满）
+  var SP_K   = [-0.8, -0.45, 0.4, -0.05, 0.4];   // 每根散开的方向与幅度（负号 = 反向）
+  var SP_SK  = [0.10, 0.16, 0.22, 0.13, 0.19];// 每根跟上的快慢（越小越慢，尾巴越长）
+
+  var m = location.search.match(/[?&]r=([\d.]+)/);
+  if (m) RATIO = parseFloat(m[1]);
+  var spm = location.search.match(/[?&]sp=([\d.]+)/);
+  if (spm) SP_MAX = parseFloat(spm[1]);
+
+  // ================= 栏目 =================
+  var BLOCKS = [
+    { idx: '01', name: 'Black and White', imgs: ['images/bw-1.jpg', 'images/bw-2.jpg'] },
+    { idx: '02', name: '暂定',            imgs: ['images/rain-1.jpg', 'images/rain-2.jpg', 'images/rain-3.jpg'] }
+  ];
+  var SECTIONS = ['Home', 'black and white', '暂定'];
+
+  // ================= DOM =================
+  var homeEl  = document.getElementById('home');
+  var trackEl = document.getElementById('track');
+  var bgEl    = document.getElementById('bgLayer');
+  var fgEl    = document.getElementById('fgLayer');
+
+  var vw = 0, vh = 0, H = 0, W = 0, GAP = 0, PITCH = 0;
+  var TOPA = 0, TOPB = 0, BLOCK_W = 0, BLOCK_GAP = 0, TAIL = 0, TRACK_W = 0, TRAVEL = 0, MAXD = 0;
+  var slats = [], bgWords = [], labels = [];
+  var lastIdx = -1, syncing = false;
+  var spVal = [], spTarget = 0, spLastY = null, spTickT = 0, spMoveT = 0, spRAF = 0;
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  // 平滑限幅：越靠边越慢，但不会像 clamp 那样彻底“停住”
+  function soft(d, k, max) { return max * Math.tanh(d * k / max); }
+
+  function build() {
+    vw = window.innerWidth;
+    vh = window.innerHeight;
+
+    H     = vh * H_R;
+    W     = H / RATIO;
+    GAP   = W * GAP_R;
+    PITCH = W + GAP;
+    TOPA  = vh * TOP_A_R;
+    TOPB  = vh * TOP_B_R;
+    MAXD  = W * 0.75;
+
+    BLOCK_W   = vw * BLOCK_R;
+    BLOCK_GAP = vw * GAPB_R;
+    TAIL      = (vw - BLOCK_W) / 2;
+    TRACK_W   = (BLOCKS.length - 1) * BLOCK_GAP + BLOCK_W + TAIL;
+    TRAVEL    = TRACK_W;                       // 滚到底 = 轨道刚好走完
+
+    // 总滚动 = 主页一屏(vh) + 横向行程(TRAVEL)，所以文档高度要多出两屏
+    document.body.style.height = (2 * vh + TRAVEL) + 'px';
+
+    trackEl.innerHTML = ''; bgEl.innerHTML = ''; fgEl.innerHTML = '';
+    trackEl.style.width = bgEl.style.width = fgEl.style.width = TRACK_W + 'px';
+    slats = []; bgWords = []; labels = [];
+
+    BLOCKS.forEach(function (b, bi) {
+      var x0 = bi * BLOCK_GAP;
+
+      // 背景大字（很淡，只做纵深）——放在条条那一侧，避开左边的文字
+      var bx = x0 + vw * 0.45;
+      var w = document.createElement('div');
+      w.className = 'bg-word';
+      w.textContent = b.name;
+      w.style.left = bx + 'px';
+      bgEl.appendChild(w);
+      bgWords.push({ el: w, x: bx });
+
+      // 左边的文字
+      var lb = document.createElement('div');
+      lb.className = 'label';
+      lb.style.left = (x0 + vw * LABEL_X) + 'px';
+      lb.innerHTML = '<div class="box">' +
+        '<div class="rule"></div>' +
+        '<div class="idx">' + b.idx + '</div>' +
+        '<div class="name">' + b.name + '</div></div>';
+      fgEl.appendChild(lb);
+      labels.push({ el: lb, x: x0 + vw * LABEL_X });
+
+      // 右边的条条
+      b.imgs.forEach(function (src, ci) {
+        var x = x0 + vw * SLAT_X + ci * PITCH;
+        var s = document.createElement('div');
+        s.className = 'slat';
+        s.style.left = x + 'px';
+        s.style.top = (ci % 2 ? TOPB : TOPA) + 'px';
+        s.style.width = W + 'px';
+        s.style.height = H + 'px';
+        var im = document.createElement('i');
+        im.style.backgroundImage = 'url("' + src + '")';
+        im.style.backgroundPosition = (30 + ci * 20) + '% center';
+        s.appendChild(im);
+        trackEl.appendChild(s);
+        slats.push({
+          el: s, img: im, x: x,
+          k:   K_IMG[ci % K_IMG.length],                     // 条内图的视差系数
+          spk: SP_K[slats.length % SP_K.length],             // 呼吸：散开方向/幅度
+          ssk: SP_SK[slats.length % SP_SK.length]            // 呼吸：跟上目标的快慢
+        });
+      });
+    });
+
+    spVal = slats.map(function () { return 0; });
+    spTarget = 0; spLastY = null;
+
+    layout();
+  }
+
+  function layout(sy) {
+    // 滚动值优先用 Locomotive(Lenis) 给的平滑值，没有就退回浏览器原生 scrollY
+    var y = (typeof sy === 'number' && isFinite(sy)) ? sy : window.scrollY;
+    var T = clamp(y - vh, 0, TRAVEL);
+    var base = vw - T;
+
+    trackEl.style.transform = 'translate3d(' + base + 'px,0,0)';
+    bgEl.style.transform    = 'translate3d(' + base + 'px,0,0)';
+    fgEl.style.transform    = 'translate3d(' + base + 'px,0,0)';
+
+    var mid = vw / 2;
+    var i;
+    for (i = 0; i < slats.length; i++) {
+      var s = slats[i];
+      var ds = (s.x + base + W / 2) - mid;
+      s.img.style.transform = 'translate3d(' + soft(ds, s.k, MAXD).toFixed(2) + 'px,0,0)';
+    }
+    for (i = 0; i < labels.length; i++) {
+      var l = labels[i];
+      l.el.style.transform = 'translate3d(' + soft((l.x + base) - mid, K_LABEL, 34).toFixed(2) + 'px,0,0)';
+    }
+    for (i = 0; i < bgWords.length; i++) {
+      var b = bgWords[i];
+      var db = (b.x + base) - mid;
+      b.el.style.transform = 'translate(-50%,-50%) translate3d(' + soft(db, K_BG, 40).toFixed(2) + 'px,0,0)';
+      // 离画面中心太远就淡掉，免得视口边缘留半截淡字
+      b.el.style.opacity = clamp(1 - (Math.abs(db) - vw * 0.25) / (vw * 0.20), 0, 1).toFixed(3);
+    }
+
+    // 主页淡出
+    var p = clamp((y - vh * 0.55) / (vh * 0.45), 0, 1);
+    homeEl.style.opacity = String(1 - p);
+    homeEl.style.transform = 'translate3d(0,' + (-y * 0.10).toFixed(2) + 'px,0)';
+    homeEl.style.pointerEvents = p > 0.4 ? 'none' : 'auto';
+
+    // 顶部轮子 = 区块指示器：谁离视口中心最近，就选中谁
+    var idx = 0;
+    if (y >= vh * 0.9) {
+      idx = 1;
+      for (var bi = 1; bi < BLOCKS.length; bi++) {
+        if (T > (blockCenterT(bi) + blockCenterT(bi + 1)) / 2) idx = bi + 1;
+      }
+    }
+    if (idx !== lastIdx) {
+      lastIdx = idx;
+      if (wheel) { syncing = true; wheel.select(idx); syncing = false; }
+    }
+
+    startSpread();
+  }
+
+  // 第 i 个栏目块（i 从 1 开始）正好在视口中心时，需要的横向行程
+  function blockCenterT(i) {
+    return (i - 1) * BLOCK_GAP + BLOCK_W / 2 + vw / 2;
+  }
+
+  function jumpTo(i) {
+    var y = i === 0 ? 0 : vh + blockCenterT(i);
+    if (lscroll) lscroll.scrollTo(y, { duration: 1.1 });
+    else window.scrollTo({ top: y, behavior: 'smooth' });
+  }
+
+  // ================= 平滑滚动：Locomotive Scroll v5 =================
+  // 它自带 data-scroll / data-scroll-speed 自动视差，但那是给「随页面纵向滚过视口」的元素用的；
+  // 我们的条条是钉住之后横向滑的，自动视差用不上（会算出几百 px 的纵向位移），
+  // 这里吃它的 Lenis 内核：滚动带惯性，横滑跟着平滑值走。
+  // 以后加普通纵向栏目时，元素上写 data-scroll data-scroll-speed="0.3" 就自动有视差。
+  var lscroll = (typeof locomotiveScroll === 'function')
+    ? new locomotiveScroll({
+        lenisOptions: {
+          lerp: 0.09,            // 平滑程度：越小越飘（0.05~0.12 之间调）
+          wheelMultiplier: 1,
+          smoothWheel: true,
+          syncTouch: false
+        },
+        scrollCallback: function (l) { layout(l.scroll); }
+      })
+    : null;
+
+  // ================= 顶部悬挂轮子 =================
+  var wheel = OptionWheel.create(document.getElementById('wheel'), SECTIONS, {
+    defaultSelected: 0,
+    side: 'right',
+    fontSize: 1.5,
+    spacing: 1.9,
+    curve: 2,
+    tilt: 6,
+    blur: 1.5,
+    fade: 0.35,
+    smoothing: 200,
+    inset: 48,
+    loop: true,
+    draggable: true,
+    dragAxis: 'x',
+    captureWheel: false,          // 滚轮让给页面
+    textColor: '#bdbdbd',
+    activeColor: '#111111',
+    onChange: function (i) { if (!syncing) jumpTo(i); }
+  });
+
+  // ================= 右上菜单 =================
+  StaggeredMenu.create(document.getElementById('menu'), {
+    position: 'left',
+    isFixed: true,
+    colors: ['#FF4D9D', '#FF0374'],
+    items: [
+      { label: 'Home', link: '#home' },
+      { label: 'black and white', link: '#black-and-white' },
+      { label: '暂定', link: '#tentative' }
+    ],
+    displaySocials: false,
+    displayItemNumbering: true,
+    menuButtonColor: '#111111',
+    openMenuButtonColor: '#FF0374',
+    accentColor: '#FF0374',
+    changeMenuColorOnOpen: true,
+    closeOnClickAway: true
+  });
+
+  // ================= 事件 =================
+  var ticking = false;
+  window.addEventListener('scroll', function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () { ticking = false; layout(); });
+  }, { passive: true });
+
+  window.addEventListener('resize', function () {
+    lastIdx = -1;
+    build();
+    if (lscroll) {
+      lscroll.resize();
+      if (lscroll.lenisInstance) lscroll.lenisInstance.resize();
+    }
+  });
+
+  // ================= 滚轮呼吸：每根条散开的幅度与快慢都不同 =================
+  // 展开量 spTarget 跟着「滚动速度」走（不是跟着滚动位置），所以滚的时候散开、一停就收回原位。
+  // 每根条再用自己的 spk（方向/幅度）和 ssk（跟上快慢）去追 → 滑动中条与条之间有速度差。
+  function spreadTick() {
+    spRAF = 0;
+    var now = performance.now();
+    var y = window.scrollY;
+    if (spLastY === null || now - spTickT > 120) spLastY = y;   // 停久了重启，别把旧差值当速度
+    var dt = now - spTickT; if (dt < 1) dt = 16;
+    // 速度按 px/ms 算：window.scrollY 是整数，Lenis 尾巴里每帧只在 0/1 间跳，
+    // 用「每帧差值」会把这种亚像素残速误判成高速（散开量抖着不收回）。
+    var v = (y - spLastY) / dt;
+    spLastY = y; spTickT = now;
+
+    // 死区 0.1px/ms：scrollY 是整数，1px 跳变 ≈ 0.0625，那是舍入噪声不是滚动
+    if (Math.abs(v) > 0.1) { spTarget = clamp(v / SP_V, -1, 1); spMoveT = now; }
+    else if (now - spMoveT > 70) { spTarget = 0; }              // 滚停 → 收回
+
+    var busy = false, i;
+    for (i = 0; i < slats.length; i++) {
+      var s = slats[i];
+      var t = s.spk * SP_MAX * spTarget;
+      var cur = spVal[i] || 0;
+      var next = cur + (t - cur) * s.ssk;
+      if (Math.abs(t - next) < 0.03) next = t;
+      spVal[i] = next;
+      s.el.style.transform = 'translate3d(' + next.toFixed(2) + 'px,0,0)';
+      if (Math.abs(next) > 0.03 || Math.abs(t - next) > 0.03) busy = true;
+    }
+    if (busy || Math.abs(spTarget) > 0.002) spRAF = requestAnimationFrame(spreadTick);
+  }
+  function startSpread() { if (!spRAF) spRAF = requestAnimationFrame(spreadTick); }
+
+  function fromHash() {
+    var h = location.hash.replace('#', '');
+    if (!h) return;
+    if (h === 'home') return jumpTo(0);
+    if (h === 'black-and-white') return jumpTo(1);
+    if (h === 'tentative') return jumpTo(2);
+    var n = parseFloat(h);
+    if (!isNaN(n)) {
+      if (lscroll) lscroll.scrollTo(n, { immediate: true });
+      else window.scrollTo(0, n);
+    }
+  }
+  window.addEventListener('hashchange', fromHash);
+
+  build();
+  if (lscroll) {
+    lscroll.resize();
+    if (lscroll.lenisInstance) lscroll.lenisInstance.resize();
+  }
+  fromHash();
+})();
+</script>
+</body>
+</html>
