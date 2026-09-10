@@ -59,7 +59,9 @@
 
   /* ---------- character：横向轨道（钉住，滚轮驱动） ---------- */
   .stage { position: fixed; inset: 0; overflow: hidden; z-index: 2; }
-  .layer { position: absolute; top: 0; left: 0; height: 100%; will-change: transform; }
+  /* 装饰层整块不吃鼠标：它们会盖在条条上面（#fgLayer 在 DOM 里排在 #track 之后），
+     透明的盒子照样参与命中判定，不加这行点条条完全没反应 */
+  .layer { position: absolute; top: 0; left: 0; height: 100%; will-change: transform; pointer-events: none; }
 
   .slat { position: absolute; overflow: hidden; background: #efefef; will-change: transform; }
   .slat > i {
@@ -91,10 +93,15 @@
     transform-origin: 0 0;
     transform: translate(0, var(--band)) rotate(-90deg);
     z-index: 20;
+    /* 这条 220px 带子横在屏幕顶上，会盖住高条条的上端 1/4。
+       带子本身不接收鼠标（空的带状区域放行给下面的条条），
+       只把轮子上真正的可点项放回来 —— 点项仍然能跳栏目。 */
+    pointer-events: none;
   }
+  #wheel .option-wheel__item { pointer-events: auto; }
 
   /* ---------- 点条条 → 变纯色 → 两段式展开成全屏角色面板 ---------- */
-  .slat { cursor: pointer; }
+  .slat { cursor: pointer; pointer-events: auto; }
   .charpanel {
     position: fixed; z-index: 10; overflow: hidden;
     will-change: left, top, width, height;
