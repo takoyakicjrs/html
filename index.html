@@ -253,7 +253,7 @@
   var CP_PW = 0.33;        // 立绘最大宽（横构图的占位图别铺满半屏，四周留白才像「纯色底上站着人」）
   var CP_T1 = 0.45, CP_T2 = 0.35, CP_T3 = 0.35, CP_OV = 0.25;  // 展开：纵向 / 横·原地对称张开 / 内容淡入 / 内容错开
   var CP_C1 = 0.15, CP_C2 = 0.35, CP_C3 = 0.25;
-  var CP_CD = 0.15;        // 点击后「整排条条刷成这个色」那一下的时长；展开动画额外加在它后面（?cd= 可调）
+  var CP_CD = 0.15;        // 被点中那一根「变纯色 / 褪回自己的图」的时长（?cd= 可调）
   var cpm;
   if ((cpm = location.search.match(/[?&]ph=([\d.]+)/))) CP_H  = parseFloat(cpm[1]) / 100;
   if ((cpm = location.search.match(/[?&]pc=([\d.]+)/))) CP_CX = parseFloat(cpm[1]) / 100;
@@ -613,22 +613,17 @@
   // 退出时传 rev=true 用同一条次序倒着褪回来。条条的底色本来就存在（.slat 的灰底），
   // 所以不新建任何图层：只动 backgroundColor + 条内图的 opacity。
   var SLAT_BG = null;
-  function cpPaint(c, rev, now) {
-    var n = slats.length;
-    if (!n) return;
-    if (SLAT_BG === null) SLAT_BG = getComputedStyle(slats[0].el).backgroundColor;   // 记下 CSS 里的原底色
-    var els = slats.map(function (s) { return s.el; });
-    var ims = slats.map(function (s) { return s.img; });
-    gsap.killTweensOf(els); gsap.killTweensOf(ims);
+  var cpPainted = null;                            // 当前被染成纯色的那一根（只染被点中的一根）
+  function cpPaint(c, now) {
+    if (SLAT_BG === null && slats.length) SLAT_BG = getComputedStyle(slats[0].el).backgroundColor;
+    var s = c ? slats[cpIdx] : cpPainted;          // 上色认刚点中的那根，褪色认上次染过的那根
+    if (!s) return;
+    if (c) cpPainted = s;
     var dur = now ? 0 : CP_CD;
-    var ord = gsap.utils.shuffle(slats.map(function (_, i) { return i; }));
-    if (rev) ord.reverse();
-    var d = [], step = dur * 0.8 / Math.max(1, n - 1);
-    ord.forEach(function (v, k) { d[v] = k * step; });
-    var dl = function (i) { return d[i]; };
-    gsap.to(els, { backgroundColor: c || SLAT_BG, duration: dur, ease: 'none', delay: dl });
-    gsap.to(ims, { opacity: c ? 0 : 1, duration: dur, ease: 'none', delay: dl });
-    if (!c) gsap.set(els, { clearProps: 'backgroundColor', delay: dur * 1.8 });       // 褪完还原成 CSS 灰底
+    gsap.killTweensOf(s.el); gsap.killTweensOf(s.img);
+    gsap.to(s.el, { backgroundColor: c || SLAT_BG, duration: dur, ease: 'none' });
+    gsap.to(s.img, { opacity: c ? 0 : 1, duration: dur, ease: 'none' });
+    if (!c) { cpPainted = null; gsap.set(s.el, { clearProps: 'backgroundColor', delay: dur + 0.02 }); }
   }
 
   function openPanel(i) {
@@ -643,7 +638,7 @@
     panelEl.style.setProperty('--cp-ink', ink);
     panelEl.style.setProperty('--cp-dim', ink === '#ffffff' ? 'rgba(255,255,255,.72)' : 'rgba(17,17,17,.62)');
 
-    cpPaint(c);                                     // ① 整排条条快速刷成这个色（先后随机）—— 然后才是展开
+    cpPaint(c);                                    // ① 被点中那一根先变纯色（随即被面板盖住，同色无缝）
 
     var d = CP_DATA[i % CP_DATA.length];
     cpNo.textContent = d.no;
@@ -664,9 +659,9 @@
     gsap.set(cpInfo.children, { opacity: 0, y: 12 });
 
     if (lscroll && lscroll.stop) lscroll.stop();    // 展开期间锁住页面滚动
-    gsap.to([trackEl, bgEl, fgEl, wheelHangEl], { opacity: 0, duration: 0.3, delay: CP_CD, overwrite: true });
+    gsap.to([trackEl, bgEl, fgEl, wheelHangEl], { opacity: 0, duration: 0.3, overwrite: true });
 
-    cpTl = gsap.timeline({ delay: CP_CD })          // 染色那一下跑满再起跑
+    cpTl = gsap.timeline()
       // 第一段：纵向 —— 以条的中心为锚，上下两条边同时往屏幕上下边推
       .to(panelEl, { top: 0, height: vh, duration: CP_T1, ease: 'power2.out' })
       // 第二段：横向 —— 原地张开。锚点 =「条自己的中心」，半宽从 条宽/2 长到 cpHalf，
@@ -689,7 +684,7 @@
     var cx = r.left + r.width / 2, half = Math.max(cx, vw - cx);   // 和展开时同一套锚点
     if (hard) {
       panelEl.hidden = true; cpIdx = -1;
-      cpPaint(null, false, true);                    // 硬关：颜色瞬间褪回，不留残色
+      cpPaint(null, true);                    // 硬关：颜色瞬间褪回，不留残色
       if (lscroll && lscroll.start) lscroll.start();
       gsap.set([trackEl, bgEl, fgEl, wheelHangEl], { opacity: 1 });
       cpWheelInk(null);
@@ -698,7 +693,7 @@
     cpTl = gsap.timeline({
       onComplete: function () {
         panelEl.hidden = true; cpIdx = -1;
-        cpPaint(null, true);                           // ⑤ 收起动作跑完（面板已窄成一根色块）才褪色，露出条内图
+        cpPaint(null);                                 // ⑤ 收起动作跑完（面板已窄成一根色块）才褪色，露出条内图
         if (lscroll && lscroll.start) lscroll.start();
         cpWheelInk(null);
         layout();
