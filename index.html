@@ -92,6 +92,32 @@
     transform: translate(0, var(--band)) rotate(-90deg);
     z-index: 20;
   }
+
+  /* ---------- 点条条 → 变纯色 → 两段式展开成全屏角色面板 ---------- */
+  .slat { cursor: pointer; }
+  .charpanel {
+    position: fixed; z-index: 10; overflow: hidden;
+    will-change: left, top, width, height;
+  }
+  .charpanel[hidden] { display: none; }
+  .cp-portrait {
+    position: absolute; left: 0; top: 0; width: 50%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .cp-portrait img { display: block; width: auto; height: auto; max-width: 100%; max-height: 73%; }
+  .cp-info {
+    position: absolute; left: 60%; top: 50%; width: 32%;
+    transform: translateY(-50%);
+    color: var(--cp-ink, #111);
+    pointer-events: none;
+  }
+  .cp-info > * { opacity: 0; }
+  .cp-rule { width: 44px; height: 1px; background: currentColor; }
+  .cp-no { margin-top: 14px; font-size: 10px; letter-spacing: 4px; color: var(--cp-dim, #888); }
+  .cp-name { margin-top: 10px; font-size: 30px; line-height: 1.2; letter-spacing: .02em; }
+  .cp-desc { margin: 22px 0 0; font-size: 13px; line-height: 2.1; letter-spacing: .02em;
+             color: var(--cp-dim, #888); white-space: pre-line; }
 </style>
 </head>
 <body>
@@ -111,6 +137,16 @@
 </div>
 
 <div id="menu"></div>
+
+<div class="charpanel" id="charpanel" hidden>
+  <div class="cp-portrait" id="cpPortrait"><img id="cpImg" alt=""></div>
+  <div class="cp-info" id="cpInfo">
+    <div class="cp-rule"></div>
+    <div class="cp-no" id="cpNo"></div>
+    <div class="cp-name" id="cpName"></div>
+    <p class="cp-desc" id="cpDesc"></p>
+  </div>
+</div>
 
 <script src="libs/gsap.min.js"></script>
 <!-- Locomotive Scroll v5：内核是 Lenis，UMD 版靠 window.lenis 拿依赖，所以顺序不能反 -->
@@ -146,6 +182,33 @@
   if (m) RATIO = parseFloat(m[1]);
   var spm = location.search.match(/[?&]sp=([\d.]+)/);
   if (spm) SP_MAX = parseFloat(spm[1]);
+
+  // ---- 角色面板（点条条展开）----
+  // 几何按她 2026-09-10 的手绘草图量出：立绘水平中心 25.1%、立绘高 72.6%、文字左端 59.9%
+  // 临时换档：?ph=66 / ?pc=22 / ?pt=55 / ?pw=34
+  var CP_COLOR = ['#E3EAF2', '#A9BED6', '#5A7899', '#344761', '#141D2F'];   // 配色 B：每根条写死一个色
+  // 每根条一个角色。portrait 是左侧立绘：留空就先用条里那张图顶着；以后把真立绘丢进 images/
+  // 再把路径写进去（例：portrait: 'images/char-03.png'），去背 PNG 最好，会被原样摆上去、不裁不加框。
+  var CP_DATA = [
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '04', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '05', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' }
+  ];
+  var CP_H  = 0.73;        // 立绘高 = 0.73 × 视口高
+  var CP_CX = 0.25;        // 立绘水平中心（左侧那块占 0 ~ 2×CP_CX，图在其中居中）
+  var CP_TX = 0.60;        // 文字左端
+  var CP_TW = 0.32;        // 文字列宽
+  var CP_PW = 0.33;
+  var CP_T1 = 0.45, CP_T2 = 0.35, CP_T3 = 0.35, CP_OV = 0.25;   // 展开：纵向 / 横向 / 内容淡入 / 内容错开
+  var CP_C1 = 0.15, CP_C2 = 0.25, CP_C3 = 0.25;                 // 收起：内容淡出 / 横向 / 纵向        // 立绘最大宽（横构图的占位图别铺满半屏，四周留白才像「纯色底上站着人」）
+  var cpm;
+  if ((cpm = location.search.match(/[?&]ph=([\d.]+)/))) CP_H  = parseFloat(cpm[1]) / 100;
+  if ((cpm = location.search.match(/[?&]pc=([\d.]+)/))) CP_CX = parseFloat(cpm[1]) / 100;
+  if ((cpm = location.search.match(/[?&]pt=([\d.]+)/))) CP_TX = parseFloat(cpm[1]) / 100;
+  if ((cpm = location.search.match(/[?&]pw=([\d.]+)/))) CP_TW = parseFloat(cpm[1]) / 100;
+  if ((cpm = location.search.match(/[?&]pi=([\d.]+)/))) CP_PW = parseFloat(cpm[1]) / 100;
 
   // ================= 栏目 =================
   var BLOCKS = [
@@ -232,8 +295,10 @@
         im.style.backgroundPosition = (30 + ci * 20) + '% center';
         s.appendChild(im);
         trackEl.appendChild(s);
+        var gi = slats.length;                                  // 展平后的下标，点这根就展开它
+        s.addEventListener('click', function () { openPanel(gi); });
         slats.push({
-          el: s, img: im, x: x,
+          el: s, img: im, src: src, x: x,
           k:   K_IMG[ci % K_IMG.length],                     // 条内图的视差系数
           spk: SP_K[slats.length % SP_K.length],             // 呼吸：散开方向/幅度
           ssk: SP_SK[slats.length % SP_SK.length]            // 呼吸：跟上目标的快慢
@@ -244,6 +309,7 @@
     spVal = slats.map(function () { return 0; });
     spTarget = 0; spLastY = null;
 
+    cpGeometry();
     layout();
   }
 
@@ -375,6 +441,7 @@
   }, { passive: true });
 
   window.addEventListener('resize', function () {
+    if (cpOpen) cpHardClose();     // 面板开着时尺寸变了就立刻收掉，免得停在半路
     lastIdx = -1;
     build();
     if (lscroll) {
@@ -429,6 +496,120 @@
     }
   }
   window.addEventListener('hashchange', fromHash);
+
+  // ================= 点条条 → 变纯色 → 两段式展开成全屏角色面板 =================
+  var panelEl    = document.getElementById('charpanel');
+  var cpPortrait = document.getElementById('cpPortrait');
+  var cpImg      = document.getElementById('cpImg');
+  var cpInfo     = document.getElementById('cpInfo');
+  var cpNo       = document.getElementById('cpNo');
+  var cpName     = document.getElementById('cpName');
+  var cpDesc     = document.getElementById('cpDesc');
+  var cpOpen = false, cpIdx = -1, cpTl = null, cpRect = null;
+
+  // 文字色不手挑：底色一写死，就按 WCAG 对比度自动选黑字 / 白字
+  function lum(hex) {
+    var v = [1, 3, 5].map(function (i) { return parseInt(hex.substr(i, 2), 16) / 255; })
+                     .map(function (c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  function ctRatio(a, b) {
+    var la = lum(a), lb = lum(b), hi = Math.max(la, lb), lo = Math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  // 顶部轮子的灰字是为白底配的，压在深色面板上会糊 —— 展开时按面板底色临时换一套
+  function cpWheelInk(ink) {
+    var r = document.documentElement.style;
+    if (!ink) { r.removeProperty('--ow-text-color'); r.removeProperty('--ow-active-color'); return; }
+    var light = ink === '#111111';
+    r.setProperty('--ow-text-color', light ? 'rgba(17,17,17,.35)' : 'rgba(255,255,255,.45)');
+    r.setProperty('--ow-active-color', light ? '#111111' : '#ffffff');
+  }
+
+  // 面板里立绘 / 文字的位置（改 CP_* 或加 URL 参数都能换档）
+  function cpGeometry() {
+    cpPortrait.style.width = (CP_CX * 200) + '%';
+    cpImg.style.maxHeight = (CP_H * 100) + '%';
+    cpImg.style.maxWidth = (CP_PW * 100) + 'vw';
+    cpInfo.style.left = (CP_TX * 100) + '%';
+    cpInfo.style.width = (CP_TW * 100) + '%';
+  }
+
+  function openPanel(i) {
+    var s = slats[i];
+    if (cpOpen || !s) return;
+    if (cpTl) { cpTl.kill(); cpTl = null; }         // 上一条（可能是收起）还没跑完就先掐掉，免得两边抢 left/top
+    cpOpen = true; cpIdx = i;
+
+    var c = CP_COLOR[i % CP_COLOR.length];
+    var ink = ctRatio(c, '#ffffff') >= ctRatio(c, '#111111') ? '#ffffff' : '#111111';
+    panelEl.style.background = c;
+    panelEl.style.setProperty('--cp-ink', ink);
+    panelEl.style.setProperty('--cp-dim', ink === '#ffffff' ? 'rgba(255,255,255,.72)' : 'rgba(17,17,17,.62)');
+
+    var d = CP_DATA[i % CP_DATA.length];
+    cpNo.textContent = d.no;
+    cpName.textContent = d.name;
+    cpDesc.textContent = d.desc;
+    cpImg.src = d.portrait || s.src;              // 有真立绘就用真立绘，没有就先用条里那张顶着
+    cpImg.alt = d.name;
+
+    cpWheelInk(ink);
+    cpRect = s.el.getBoundingClientRect();        // 条此刻在屏幕上的矩形
+    panelEl.hidden = false;
+    gsap.set(panelEl, { left: cpRect.left, top: cpRect.top, width: cpRect.width, height: cpRect.height });
+    gsap.set(cpPortrait, { opacity: 0 });
+    gsap.set(cpInfo.children, { opacity: 0, y: 12 });
+
+    if (lscroll && lscroll.stop) lscroll.stop();    // 展开期间锁住页面滚动
+    gsap.to([trackEl, bgEl, fgEl], { opacity: 0, duration: 0.3, overwrite: true });
+
+    cpTl = gsap.timeline()
+      // 第一段：纵向 —— 以条的中心为锚，上下两条边同时往屏幕上下边推
+      .to(panelEl, { top: 0, height: vh, duration: CP_T1, ease: 'power2.out' })
+      // 第二段：横向 —— 以条的水平中心为锚，向左右铺开到满屏
+      .to(panelEl, { left: 0, width: vw, duration: CP_T2, ease: 'power3.inOut' })
+      // 到位后内容才淡入
+      .to(cpPortrait, { opacity: 1, duration: CP_T3, ease: 'power1.out' })
+      .to(cpInfo.children, { opacity: 1, y: 0, duration: CP_T3, stagger: 0.06, ease: 'power1.out' }, '-=' + CP_OV);
+    window.__cpTl = cpTl;                           // 调试钩子：__cpTl.pause().time(0.45) 能定格到「纵向长满」那一刻
+  }
+
+  function closePanel(hard) {
+    if (!cpOpen) return;
+    cpOpen = false;
+    if (cpTl) { cpTl.kill(); cpTl = null; }
+    var s = slats[cpIdx];
+    var r = s ? s.el.getBoundingClientRect() : cpRect;   // 滚动锁着，位置没变
+    if (hard) {
+      panelEl.hidden = true; cpIdx = -1;
+      if (lscroll && lscroll.start) lscroll.start();
+      gsap.set([trackEl, bgEl, fgEl], { opacity: 1 });
+      cpWheelInk(null);
+      return;
+    }
+    cpTl = gsap.timeline({
+      onComplete: function () {
+        panelEl.hidden = true; cpIdx = -1;
+        if (lscroll && lscroll.start) lscroll.start();
+        cpWheelInk(null);
+        layout();
+      }
+    })
+      .to([cpPortrait, cpInfo.children], { opacity: 0, duration: CP_C1, ease: 'none' })
+      .to(panelEl, { left: r.left, width: r.width, duration: CP_C2, ease: 'power3.inOut' })
+      .to(panelEl, { top: r.top, height: r.height, duration: CP_C3, ease: 'power2.in' });
+    window.__cpTl = cpTl;
+    // 收回到条宽那一刻，把页面其余部分淡回来（这时面板已经窄成一根条）
+    gsap.to([trackEl, bgEl, fgEl], { opacity: 1, duration: CP_C2, delay: CP_C1 + CP_C2, overwrite: true });
+  }
+  function cpHardClose() { closePanel(true); }
+
+  panelEl.addEventListener('click', function () { closePanel(); });
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' || e.key === 'Esc') closePanel();
+  });
 
   build();
   if (lscroll) {
