@@ -103,7 +103,9 @@
   /* ---------- 点条条 → 变纯色 → 两段式展开成全屏角色面板 ---------- */
   .slat { cursor: pointer; pointer-events: auto; }
   .charpanel {
-    position: fixed; z-index: 10; overflow: hidden;
+    /* z-index 30：压在顶部轮子（20）之上、右上菜单（40）之下。
+       展开时靠这一条把轮子盖住，轮子那些可点项也就吃不到面板上的点击了。 */
+    position: fixed; z-index: 30; overflow: hidden;
     will-change: left, top, width, height;
   }
   .charpanel[hidden] { display: none; }
@@ -208,8 +210,8 @@
   var CP_TX = 0.60;        // 文字左端
   var CP_TW = 0.32;        // 文字列宽
   var CP_PW = 0.33;
-  var CP_T1 = 0.45, CP_T2 = 0.35, CP_T3 = 0.35, CP_OV = 0.25;   // 展开：纵向 / 横向 / 内容淡入 / 内容错开
-  var CP_C1 = 0.15, CP_C2 = 0.25, CP_C3 = 0.25;                 // 收起：内容淡出 / 横向 / 纵向        // 立绘最大宽（横构图的占位图别铺满半屏，四周留白才像「纯色底上站着人」）
+  var CP_T1 = 0.45, CP_T2A = 0.15, CP_T2B = 0.20, CP_T3 = 0.35, CP_OV = 0.25;  // 展开：纵向 / 横·平移到中线 / 横·左右对称张开 / 内容淡入 / 内容错开
+  var CP_C1 = 0.15, CP_C2A = 0.20, CP_C2B = 0.15, CP_C3 = 0.25;  // 收起：内容淡出 / 横·左右对称收拢 / 横·滑回条条 / 纵向        // 立绘最大宽（横构图的占位图别铺满半屏，四周留白才像「纯色底上站着人」）
   var cpm;
   if ((cpm = location.search.match(/[?&]ph=([\d.]+)/))) CP_H  = parseFloat(cpm[1]) / 100;
   if ((cpm = location.search.match(/[?&]pc=([\d.]+)/))) CP_CX = parseFloat(cpm[1]) / 100;
@@ -229,6 +231,7 @@
   var trackEl = document.getElementById('track');
   var bgEl    = document.getElementById('bgLayer');
   var fgEl    = document.getElementById('fgLayer');
+  var wheelHangEl = document.getElementById('wheelHang');
 
   var vw = 0, vh = 0, H = 0, W = 0, GAP = 0, PITCH = 0;
   var TOPA = 0, TOPB = 0, BLOCK_W = 0, BLOCK_GAP = 0, TAIL = 0, TRACK_W = 0, TRAVEL = 0, MAXD = 0;
@@ -412,7 +415,7 @@
     smoothing: 200,
     inset: 48,
     loop: true,
-    draggable: true,
+    draggable: false,             // 删掉拖拽：这页轮子只用来点项跳栏目（原来 pointerdown 会进拖拽态）
     dragAxis: 'x',
     captureWheel: false,          // 滚轮让给页面
     textColor: '#bdbdbd',
@@ -570,13 +573,15 @@
     gsap.set(cpInfo.children, { opacity: 0, y: 12 });
 
     if (lscroll && lscroll.stop) lscroll.stop();    // 展开期间锁住页面滚动
-    gsap.to([trackEl, bgEl, fgEl], { opacity: 0, duration: 0.3, overwrite: true });
+    gsap.to([trackEl, bgEl, fgEl, wheelHangEl], { opacity: 0, duration: 0.3, overwrite: true });
 
     cpTl = gsap.timeline()
       // 第一段：纵向 —— 以条的中心为锚，上下两条边同时往屏幕上下边推
       .to(panelEl, { top: 0, height: vh, duration: CP_T1, ease: 'power2.out' })
-      // 第二段：横向 —— 以条的水平中心为锚，向左右铺开到满屏
-      .to(panelEl, { left: 0, width: vw, duration: CP_T2, ease: 'power3.inOut' })
+      // 第二段 A：横向 —— 这根竖条先整根平移到屏幕中线（整根一起走，左右两条边速度天然一样）
+      .to(panelEl, { left: (vw - cpRect.width) / 2, duration: CP_T2A, ease: 'power2.inOut' })
+      // 第二段 B：以屏幕中线为锚，左右同时张开。两条边各走 (vw-条宽)/2 同样的距离 → 速度一样
+      .to(panelEl, { left: 0, width: vw, duration: CP_T2B, ease: 'power3.inOut' })
       // 到位后内容才淡入
       .to(cpPortrait, { opacity: 1, duration: CP_T3, ease: 'power1.out' })
       .to(cpInfo.children, { opacity: 1, y: 0, duration: CP_T3, stagger: 0.06, ease: 'power1.out' }, '-=' + CP_OV);
@@ -592,7 +597,7 @@
     if (hard) {
       panelEl.hidden = true; cpIdx = -1;
       if (lscroll && lscroll.start) lscroll.start();
-      gsap.set([trackEl, bgEl, fgEl], { opacity: 1 });
+      gsap.set([trackEl, bgEl, fgEl, wheelHangEl], { opacity: 1 });
       cpWheelInk(null);
       return;
     }
@@ -605,11 +610,14 @@
       }
     })
       .to([cpPortrait, cpInfo.children], { opacity: 0, duration: CP_C1, ease: 'none' })
-      .to(panelEl, { left: r.left, width: r.width, duration: CP_C2, ease: 'power3.inOut' })
+      // 收起第一步：以屏幕中线为锚，左右同时往中间收（两侧各走 (vw-条宽)/2 → 等速），回到一根居中竖条
+      .to(panelEl, { left: (vw - r.width) / 2, width: r.width, duration: CP_C2A, ease: 'power3.inOut' })
+      // 收起第二步：这根竖条整根滑回条条原来的位置（整根一起走 → 两侧等速）
+      .to(panelEl, { left: r.left, duration: CP_C2B, ease: 'power2.inOut' })
       .to(panelEl, { top: r.top, height: r.height, duration: CP_C3, ease: 'power2.in' });
     window.__cpTl = cpTl;
     // 收回到条宽那一刻，把页面其余部分淡回来（这时面板已经窄成一根条）
-    gsap.to([trackEl, bgEl, fgEl], { opacity: 1, duration: CP_C2, delay: CP_C1 + CP_C2, overwrite: true });
+    gsap.to([trackEl, bgEl, fgEl, wheelHangEl], { opacity: 1, duration: CP_C2A, delay: CP_C1 + CP_C2A + CP_C2B, overwrite: true });
   }
   function cpHardClose() { closePanel(true); }
 
