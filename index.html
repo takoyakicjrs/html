@@ -196,14 +196,54 @@
   // 几何按她 2026-09-10 的手绘草图量出：立绘水平中心 25.1%、立绘高 72.6%、文字左端 59.9%
   // 临时换档：?ph=66 / ?pc=22 / ?pt=55 / ?pw=34
   var CP_COLOR = ['#E3EAF2', '#A9BED6', '#5A7899', '#344761', '#141D2F'];   // 配色 B：每根条写死一个色
-  // 每根条一个角色。portrait 是左侧立绘：留空就先用条里那张图顶着；以后把真立绘丢进 images/
-  // 再把路径写进去（例：portrait: 'images/char-03.png'），去背 PNG 最好，会被原样摆上去、不裁不加框。
+  // 每根条一个角色，顺序 = 条条在页面上的顺序；no = 栏目内第几根。
+  // portrait 是左侧立绘：留空就先用条里那张图顶着；以后把真立绘丢进 images/ 再把路径写进去
+  // （例：portrait: 'images/char-03.png'），去背 PNG 最好，会被原样摆上去、不裁不加框。
   var CP_DATA = [
+    // 01 红紫法典
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    // 02 苍苍计划
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    // 03 一去不复返之夜
     { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     { no: '04', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
-    { no: '05', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' }
+    // 04 暧昧十全
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '04', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    // 05 门外汉的矜持
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    // 06 恶德的病魔
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    // 07 生斩
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '04', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    // 08 Black and White
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    // 09 厄琉西斯的密仪
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '04', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    // 10 被剔除者的遗言
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '04', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    // 11 暂定
+    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' }
   ];
   var CP_H  = 0.73;        // 立绘高 = 0.73 × 视口高
   var CP_CX = 0.25;        // 立绘水平中心（左侧那块占 0 ~ 2×CP_CX，图在其中居中）
@@ -220,11 +260,22 @@
   if ((cpm = location.search.match(/[?&]pi=([\d.]+)/))) CP_PW = parseFloat(cpm[1]) / 100;
 
   // ================= 栏目 =================
+  // imgs 里一格 = 一根条：写图片路径就有图，写 '' 就是「先空着」（留 .slat 的灰底），等你给图再填。
+  // noColor: true = 这一栏先不上色（不参与配色轮转，条条不盖色、点开后底色用白），等清单来了再配。
   var BLOCKS = [
-    { idx: '01', name: 'Black and White', imgs: ['images/bw-1.jpg', 'images/bw-2.jpg'] },
-    { idx: '02', name: '暂定',            imgs: ['images/rain-1.jpg', 'images/rain-2.jpg', 'images/rain-3.jpg'] }
+    { idx: '01', name: '红紫法典',              imgs: ['', ''] },
+    { idx: '02', name: '苍苍计划',              imgs: ['', ''] },
+    { idx: '03', name: '一去不复返之夜',        imgs: ['', '', '', ''] },
+    { idx: '04', name: '暧昧十全',              imgs: ['', '', '', ''] },
+    { idx: '05', name: '门外汉的矜持',          imgs: ['', ''] },
+    { idx: '06', name: '恶德的病魔',            imgs: ['', ''] },
+    { idx: '07', name: '生斩',                  imgs: ['', '', '', ''] },
+    { idx: '08', name: 'Black and White', imgs: ['images/bw-1.jpg', 'images/bw-2.jpg'] },
+    { idx: '09', name: '厄琉西斯的密仪',        imgs: ['', '', '', ''] },
+    { idx: '10', name: '被剔除者的遗言',        imgs: ['images/rain-1.jpg', 'images/rain-2.jpg', 'images/rain-3.jpg', 'images/rain-1.jpg'], noColor: true },
+    { idx: '11', name: '暂定',                  imgs: ['images/rain-1.jpg', 'images/rain-2.jpg', 'images/rain-3.jpg'] }
   ];
-  var SECTIONS = ['Home', 'black and white', '暂定'];
+  var SECTIONS = ['Home', '红紫法典', '苍苍计划', '一去不复返之夜', '暧昧十全', '门外汉的矜持', '恶德的病魔', '生斩', 'black and white', '厄琉西斯的密仪', '被剔除者的遗言', '暂定'];
 
   // ================= DOM =================
   var homeEl  = document.getElementById('home');
@@ -301,14 +352,17 @@
         s.style.width = W + 'px';
         s.style.height = H + 'px';
         var im = document.createElement('i');
-        im.style.backgroundImage = 'url("' + src + '")';
-        im.style.backgroundPosition = (30 + ci * 20) + '% center';
+        if (src) {                                 // '' = 这根条先空着（留 .slat 的灰底）
+          im.style.backgroundImage = 'url("' + src + '")';
+          im.style.backgroundPosition = (30 + ci * 20) + '% center';
+        }
         s.appendChild(im);
         trackEl.appendChild(s);
         var gi = slats.length;                                  // 展平后的下标，点这根就展开它
         s.addEventListener('click', function () { openPanel(gi); });
         slats.push({
           el: s, img: im, src: src, x: x,
+          noColor: !!b.noColor,                      // 这一栏先不上色（不参与配色轮转）
           k:   K_IMG[ci % K_IMG.length],                     // 条内图的视差系数
           spk: SP_K[slats.length % SP_K.length],             // 呼吸：散开方向/幅度
           ssk: SP_SK[slats.length % SP_SK.length]            // 呼吸：跟上目标的快慢
@@ -428,11 +482,9 @@
     position: 'left',
     isFixed: true,
     colors: ['#FF4D9D', '#FF0374'],
-    items: [
-      { label: 'Home', link: '#home' },
-      { label: 'black and white', link: '#black-and-white' },
-      { label: '暂定', link: '#tentative' }
-    ],
+    items: SECTIONS.map(function (n, i) {        // Home + 11 个栏目，点了跳到那一栏
+      return { label: n, link: i === 0 ? '#home' : '#s' + i };
+    }),
     displaySocials: false,
     displayItemNumbering: true,
     menuButtonColor: '#111111',
@@ -441,6 +493,10 @@
     changeMenuColorOnOpen: true,
     closeOnClickAway: true
   });
+  // 菜单展开后那块列表本身就是个滚动容器（12 项一屏放不下），但页面滚动被 Lenis 接管了 ——
+  // 不给它开这个口子的话，滚轮只会滚页面、面板纹丝不动，最后几项点不到。
+  var smPanelEl = document.querySelector('.staggered-menu-panel');
+  if (smPanelEl) smPanelEl.setAttribute('data-lenis-prevent', '');
 
   // ================= 事件 =================
   var ticking = false;
@@ -497,8 +553,10 @@
     var h = location.hash.replace('#', '');
     if (!h) return;
     if (h === 'home') return jumpTo(0);
-    if (h === 'black-and-white') return jumpTo(1);
-    if (h === 'tentative') return jumpTo(2);
+    var m = h.match(/^s(\d+)$/);
+    if (m) return jumpTo(parseInt(m[1], 10));      // #s1 … #s11 = 第几栏（1 起）
+    if (h === 'black-and-white') return jumpTo(8);  // 老链接还能用
+    if (h === 'tentative') return jumpTo(11);
     var n = parseFloat(h);
     if (!isNaN(n)) {
       if (lscroll) lscroll.scrollTo(n, { immediate: true });
@@ -552,7 +610,7 @@
     if (cpTl) { cpTl.kill(); cpTl = null; }         // 上一条（可能是收起）还没跑完就先掐掉，免得两边抢 left/top
     cpOpen = true; cpIdx = i;
 
-    var c = CP_COLOR[i % CP_COLOR.length];
+    var c = s.noColor ? '#FFFFFF' : CP_COLOR[i % CP_COLOR.length];   // 没上色的栏目：底色先用白（字自动配黑）
     var ink = ctRatio(c, '#ffffff') >= ctRatio(c, '#111111') ? '#ffffff' : '#111111';
     panelEl.style.background = c;
     panelEl.style.setProperty('--cp-ink', ink);
@@ -562,7 +620,9 @@
     cpNo.textContent = d.no;
     cpName.textContent = d.name;
     cpDesc.textContent = d.desc;
-    cpImg.src = d.portrait || s.src;              // 有真立绘就用真立绘，没有就先用条里那张顶着
+    var pic = d.portrait || s.src;                // 有真立绘就用真立绘，没有就先用条里那张顶着
+    if (pic) { cpImg.src = pic; cpImg.style.visibility = 'visible'; }
+    else { cpImg.removeAttribute('src'); cpImg.style.visibility = 'hidden'; }   // 条里也还没图 → 只留文字
     cpImg.alt = d.name;
 
     cpWheelInk(ink);
