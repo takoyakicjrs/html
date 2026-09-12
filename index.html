@@ -58,7 +58,9 @@
   }
 
   /* ---------- character：横向轨道（钉住，滚轮驱动） ---------- */
-  .stage { position: fixed; inset: 0; overflow: hidden; z-index: 2; }
+  /* .stage 是铺满屏幕的壳：它自己不接收点击，空的地方放行给下面的轮子；
+     条条自己写了 pointer-events: auto，所以点击照旧能展开角色面板。 */
+  .stage { position: fixed; inset: 0; overflow: hidden; z-index: 2; pointer-events: none; }
   /* 装饰层整块不吃鼠标：它们会盖在条条上面（#fgLayer 在 DOM 里排在 #track 之后），
      透明的盒子照样参与命中判定，不加这行点条条完全没反应 */
   .layer { position: absolute; top: 0; left: 0; height: 100%; will-change: transform; pointer-events: none; }
@@ -96,7 +98,9 @@
     height: 100vmax;
     transform-origin: 0 0;
     transform: translate(0, var(--band)) rotate(-90deg);
-    z-index: 20;
+    /* 压在条条那一层（.stage z-index:2）下面 —— 轮子的字不再盖住条条。
+       连带效果：首屏那块白布（z-index:3）在条条之上，所以首屏看不见轮子（她 2026-09-11 点头过）。 */
+    z-index: 1;
     /* 这条 220px 带子横在屏幕顶上，会盖住高条条的上端 1/4。
        带子本身不接收鼠标（空的带状区域放行给下面的条条），
        只把轮子上真正的可点项放回来 —— 点项仍然能跳栏目。 */
@@ -107,7 +111,7 @@
   /* ---------- 点条条 → 变纯色 → 两段式展开成全屏角色面板 ---------- */
   .slat { cursor: pointer; pointer-events: auto; }
   .charpanel {
-    /* z-index 30：压在顶部轮子（20）之上、右上菜单（40）之下。
+    /* z-index 30：压在条条与顶部轮子之上、右上菜单（40）之下。
        展开时靠这一条把轮子盖住，轮子那些可点项也就吃不到面板上的点击了。 */
     position: fixed; z-index: 30; overflow: hidden;
     will-change: left, top, width, height;
