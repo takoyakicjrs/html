@@ -191,6 +191,10 @@
   var SP_V   = 0.8;                           // 滚动速度(px/ms) 到「满散开」的换算：越小越容易散开（0.8 ≈ 800px/s 就满）
   var SP_K   = [-0.8, -0.45, 0.4, -0.05, 0.4];   // 每根散开的方向与幅度（负号 = 反向）
   var SP_SK  = [0.10, 0.16, 0.22, 0.13, 0.19];// 每根跟上的快慢（越小越慢，尾巴越长）
+  // 「四根的栏」单独一套：按栏内第几根分，和「被剔除者的遗言」那四条完全一致。
+  // 其余栏（两根 / 三根）继续按「全局第几根」轮上面那两套，逻辑不变。
+  var SP_K4  = [-0.45, 0.4, -0.05, 0.4];
+  var SP_SK4 = [0.16, 0.22, 0.13, 0.19];
 
   var m = location.search.match(/[?&]r=([\d.]+)/);
   if (m) RATIO = parseFloat(m[1]);
@@ -376,13 +380,15 @@
         trackEl.appendChild(s);
         var gi = slats.length;                                  // 展平后的下标，点这根就展开它
         s.addEventListener('click', function () { openPanel(gi); });
+        var four = (b.imgs.length === 4);     // 四根的栏整套按「栏内第几根」分
+        var spk  = four ? SP_K4[ci]  : SP_K[slats.length % SP_K.length];
+        var ssk  = four ? SP_SK4[ci] : SP_SK[slats.length % SP_SK.length];
         slats.push({
           el: s, img: im, fx: fx, src: src, x: x,
           color: (b.colors && b.colors[ci]) || null, // 单根指定展开色（没写就落 5 色轮转）
           noColor: !!b.noColor,                      // 这一栏先不上色（不参与配色轮转）
           k:   K_IMG[ci % K_IMG.length],                     // 条内图的视差系数
-          spk: SP_K[slats.length % SP_K.length],             // 呼吸：散开方向/幅度
-          ssk: SP_SK[slats.length % SP_SK.length]            // 呼吸：跟上目标的快慢
+          spk: spk, ssk: ssk,                                // 呼吸：散开方向/幅度 + 跟上快慢（四根栏见 SP_K4/SP_SK4）
         });
       });
     });
