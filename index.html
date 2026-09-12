@@ -69,6 +69,9 @@
     background-size: cover; background-position: center;
     will-change: transform;
   }
+  /* 特效层（条内第二层）：那张图比立绘宽（258 vs 215），
+     给它更宽的盒子，左右错开时才不会从条条边上露出白边 / 图边 */
+  .slat > i.fx { left: -100%; width: 300%; background-position: center; }
 
   .bg-word {
     position: absolute; top: 50%;
@@ -182,6 +185,7 @@
   var K_IMG   = [0.032, 0.078, 0.052];  // 每根条里的图 —— 移速差就靠这个
   var K_LABEL = 0.050;  // 文字层
   var K_BG    = 0.028;  // 背景大字层
+  var FX_REL  = 7;      // 条内两层视差：特效层相对立绘最多错开多少 px（?fx=12 可现场换档）
   // 滚轮呼吸：滚动中每根条以不同幅度横向散开，滚停自动收回原位
   var SP_MAX = 9;                             // 单根最大散开 px（原来 18，按你要求减半；?sp=6 / ?sp=12 换档对比）
   var SP_V   = 0.8;                           // 滚动速度(px/ms) 到「满散开」的换算：越小越容易散开（0.8 ≈ 800px/s 就满）
@@ -225,7 +229,7 @@
     { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     // 07 生斩
     { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
-    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '佐藤佑', portrait: '', desc: '症候：重力魔眼|流亡畸体 \n\nUGN所属\n对使用能力有抵触心理\n这个想法会因某人产生改变吧' },
     { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     { no: '04', name: '一世月 甘利', portrait: '', noFallback: true, desc: '症候：变异魔兽|疾速灵猿\n\nUGN特工\n也许能在支部所在城市的某家奶茶店见到他' },
     // 08 Black and White
@@ -261,6 +265,7 @@
   if ((cpm = location.search.match(/[?&]pw=([\d.]+)/))) CP_TW = parseFloat(cpm[1]) / 100;
   if ((cpm = location.search.match(/[?&]pi=([\d.]+)/))) CP_PW = parseFloat(cpm[1]) / 100;
   if ((cpm = location.search.match(/[?&]cd=([\d.]+)/))) CP_CD = parseFloat(cpm[1]);
+  if ((cpm = location.search.match(/[?&]fx=([\d.]+)/))) FX_REL = parseFloat(cpm[1]);
 
   // ================= 栏目 =================
   // imgs 里一格 = 一根条：写图片路径就有图，写 '' 就是「先空着」（留 .slat 的灰底），等你给图再填。
@@ -276,7 +281,7 @@
     { idx: '07', name: '生斩',                  imgs: ['', '', '', 'images/灾兽.jpg'], colors: ['', '', '', '#182889'] },   // 第 4 根 = 灾兽.jpg（一世月 甘利）；展开色取图里那个深蓝
     { idx: '08', name: 'Black and White', imgs: ['images/黑袍.jpg', 'images/bw-2.jpg'], colors: ['#000000'] },   // 第 1 根 = 黑袍.jpg（黑白图提不出色 → 面板用纯黑）
     { idx: '09', name: '厄琉西斯的密仪',        imgs: ['', '', '', ''] },
-    { idx: '10', name: '被剔除者的遗言',        imgs: ['images/赤泊濑尾.jpg', 'images/rain-2.jpg', 'images/rain-3.jpg', 'images/rain-1.jpg'], colors: ['#D50016'], noColor: true },   // 第 1 根 = 赤泊濑尾.jpg；展开色取图里那个红
+    { idx: '10', name: '被剔除者的遗言',        imgs: ['images/111.png', 'images/rain-2.jpg', 'images/rain-3.jpg', 'images/rain-1.jpg'], fx: ['images/11122.png', '', '', ''], colors: ['#D50016'], noColor: true },   // 第 1 根 = 赤泊濑尾.jpg；展开色取图里那个红
     { idx: '11', name: '暂定',                  imgs: ['images/rain-1.jpg', 'images/rain-2.jpg', 'images/rain-3.jpg'] }
   ];
   var SECTIONS = ['Home', '红紫法典', '苍苍计划', '一去不复返之夜', '暧昧十全', '门外汉的矜持', '恶德的病魔', '生斩', 'black and white', '厄琉西斯的密仪', '被剔除者的遗言', '暂定'];
@@ -355,17 +360,24 @@
         s.style.top = (ci % 2 ? TOPB : TOPA) + 'px';
         s.style.width = W + 'px';
         s.style.height = H + 'px';
+        var fx = null;                             // 特效层（可选）：同一个条条里的第二层
         var im = document.createElement('i');
         if (src) {                                 // '' = 这根条先空着（留 .slat 的灰底）
           im.style.backgroundImage = 'url("' + src + '")';
           im.style.backgroundPosition = (30 + ci * 20) + '% center';
         }
         s.appendChild(im);
+        if (b.fx && b.fx[ci]) {                     // 特效层盖在立绘上面
+          fx = document.createElement('i');
+          fx.className = 'fx';
+          fx.style.backgroundImage = 'url("' + b.fx[ci] + '")';
+          s.appendChild(fx);
+        }
         trackEl.appendChild(s);
         var gi = slats.length;                                  // 展平后的下标，点这根就展开它
         s.addEventListener('click', function () { openPanel(gi); });
         slats.push({
-          el: s, img: im, src: src, x: x,
+          el: s, img: im, fx: fx, src: src, x: x,
           color: (b.colors && b.colors[ci]) || null, // 单根指定展开色（没写就落 5 色轮转）
           noColor: !!b.noColor,                      // 这一栏先不上色（不参与配色轮转）
           k:   K_IMG[ci % K_IMG.length],                     // 条内图的视差系数
@@ -397,7 +409,11 @@
     for (i = 0; i < slats.length; i++) {
       var s = slats[i];
       var ds = (s.x + base + W / 2) - mid;
-      s.img.style.transform = 'translate3d(' + soft(ds, s.k, MAXD).toFixed(2) + 'px,0,0)';
+      var off = soft(ds, s.k, MAXD);
+      s.img.style.transform = 'translate3d(' + off.toFixed(2) + 'px,0,0)';
+      // 特效层跟着同一个基准位移，再额外错开一点（条条到屏幕中间时错开量回到 0，静止就重合）
+      if (s.fx) s.fx.style.transform = 'translate3d(' +
+        (off + FX_REL * clamp(ds / (vw * 0.35), -1, 1)).toFixed(2) + 'px,0,0)';
     }
     for (i = 0; i < labels.length; i++) {
       var l = labels[i];
@@ -620,9 +636,11 @@
     if (!s) return;
     if (c) cpPainted = s;
     var dur = now ? 0 : CP_CD;
+    var fades = s.fx ? [s.img, s.fx] : [s.img];    // 两层（有特效层时）一起淡进淡出
     gsap.killTweensOf(s.el); gsap.killTweensOf(s.img);
+    if (s.fx) gsap.killTweensOf(s.fx);
     gsap.to(s.el, { backgroundColor: c || SLAT_BG, duration: dur, ease: 'none' });
-    gsap.to(s.img, { opacity: c ? 0 : 1, duration: dur, ease: 'none' });
+    gsap.to(fades, { opacity: c ? 0 : 1, duration: dur, ease: 'none' });
     if (!c) { cpPainted = null; gsap.set(s.el, { clearProps: 'backgroundColor', delay: dur + 0.02 }); }
   }
 
