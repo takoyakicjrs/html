@@ -391,6 +391,7 @@
         if (b.gif && b.gif[ci]) {
           gifEl = document.createElement('img');
           gifEl.className = 'gif';
+          gifEl.setAttribute('data-src', b.gif[ci]);   // 原路径（重播时要用）
           gifEl.src = b.gif[ci];                   // 建好就加载 → 点下去不用等
           s.appendChild(gifEl);
         }
@@ -685,12 +686,21 @@
   function playGifThen(s, gi) {
     if (!s || !s.gif || s.gifBusy || cpOpen) return;
     s.gifBusy = true;
-    s.gif.style.opacity = '1';                  // gif 不透明，直接盖住静图
-    setTimeout(function () {
-      s.gif.style.opacity = '0';
-      s.gifBusy = false;
-      openPanel(gi);
-    }, 820);                                     // 留一点点余量
+    var path = s.gif.getAttribute('data-src') || s.gif.getAttribute('src');
+    // 图一直在自己循环，不重置的话每次都是从半截接上（她报的 bug）：
+    // 清空 src 再放回去 → 强制从第 1 帧重来；图在缓存里，不会真的重新下载。
+    s.gif.style.opacity = '0';
+    s.gif.onload = function () {
+      s.gif.onload = null;
+      s.gif.style.opacity = '1';                // 等解码好了再露面
+      setTimeout(function () {
+        s.gif.style.opacity = '0';
+        s.gifBusy = false;
+        openPanel(gi);
+      }, 820);                                   // gif 本体 0.80s，留一点余量
+    };
+    s.gif.src = '';
+    setTimeout(function () { s.gif.src = path; }, 0);
   }
 
   function openPanel(i) {
