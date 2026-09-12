@@ -74,6 +74,10 @@
   /* 特效层（条内第二层）：那张图比立绘宽（258 vs 215），
      给它更宽的盒子，左右错开时才不会从条条边上露出白边 / 图边 */
   .slat > i.fx { left: -100%; width: 300%; background-position: center; }
+  /* 点开前先播一遍的那张 gif：盖在静图上（gif 是不透明的），平时藏着 */
+  .slat > img.gif { position: absolute; top: 0; left: -75%; width: 250%; height: 100%;
+                    object-fit: cover; object-position: center;
+                    opacity: 0; transition: opacity .12s linear; }
 
   .bg-word {
     position: absolute; top: 50%;
@@ -245,7 +249,7 @@
     { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     // 09 厄琉西斯的密仪
     { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
-    { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '02', name: '柴紀', portrait: '', noFallback: true, desc: '症候：冰炎奇蜥|变异魔兽\n\n背教者灾害紧急应对班的队长\n待人和善' },   // 立绘位留空（跟别家一根规矩）
     { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     { no: '04', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     // 10 被剔除者的遗言
@@ -290,7 +294,7 @@
     { idx: '06', name: '恶德的病魔',            imgs: ['', ''], sp: [[0.4, 0.22], [-0.05, 0.13]] },   // 呼吸散开跟 02/05 那组一致
     { idx: '07', name: '生斩',                  imgs: ['', '', '', 'images/灾兽.jpg'], colors: ['', '', '', '#182889'] },   // 第 4 根 = 灾兽.jpg（一世月 甘利）；展开色取图里那个深蓝
     { idx: '08', name: 'Black and White', imgs: ['images/黑袍.jpg', 'images/bw-2.jpg'], colors: ['#000000'] },   // 第 1 根 = 黑袍.jpg（黑白图提不出色 → 面板用纯黑）
-    { idx: '09', name: '厄琉西斯的密仪',        imgs: ['', '', '', ''] },
+    { idx: '09', name: '厄琉西斯的密仪',        imgs: ['', 'images/柴.png', '', ''], colors: ['', '#AA2339'], gif: ['', 'images/好吧.gif', '', ''] },   // 第 2 根 = 柴.png（展开色取图里那个暗红）；点开会先在条里播一遍 好吧.gif 再展开
     { idx: '10', name: '被剔除者的遗言',        imgs: ['images/111.png', 'images/rain-2.jpg', 'images/rain-3.jpg', 'images/rain-1.jpg'], fx: ['images/11122.png', '', '', ''], colors: ['#D50016'], noColor: true },   // 第 1 根 = 赤泊濑尾.jpg；展开色取图里那个红
     { idx: '11', name: '暂定',                  imgs: ['images/rain-1.jpg', 'images/rain-2.jpg', 'images/rain-3.jpg'] }
   ];
@@ -383,15 +387,26 @@
           fx.style.backgroundImage = 'url("' + b.fx[ci] + '")';
           s.appendChild(fx);
         }
+        var gifEl = null;                          // 点开前先播一遍的 gif（可选）
+        if (b.gif && b.gif[ci]) {
+          gifEl = document.createElement('img');
+          gifEl.className = 'gif';
+          gifEl.src = b.gif[ci];                   // 建好就加载 → 点下去不用等
+          s.appendChild(gifEl);
+        }
         trackEl.appendChild(s);
         var gi = slats.length;                                  // 展平后的下标，点这根就展开它
-        s.addEventListener('click', function () { openPanel(gi); });
+        s.addEventListener('click', function () {
+          // 这根配了 gif：先在条里原地播一遍，播完再跑展开动画
+          if (b.gif && b.gif[ci]) playGifThen(slats[gi], gi);
+          else openPanel(gi);
+        });
         var four = (b.imgs.length === 4);     // 四根的栏整套按「栏内第几根」分
         var sp   = (b.sp && b.sp[ci]) || null;  // 这一栏单独指定的 [散开幅度, 跟上快慢]（优先级最高）
         var spk  = sp ? sp[0] : (four ? SP_K4[ci]  : SP_K[slats.length % SP_K.length]);
         var ssk  = sp ? sp[1] : (four ? SP_SK4[ci] : SP_SK[slats.length % SP_SK.length]);
         slats.push({
-          el: s, img: im, fx: fx, src: src, x: x,
+          el: s, img: im, fx: fx, gif: gifEl, src: src, x: x,
           color: (b.colors && b.colors[ci]) || null, // 单根指定展开色（没写就落 5 色轮转）
           noColor: !!b.noColor,                      // 这一栏先不上色（不参与配色轮转）
           k:   K_IMG[ci % K_IMG.length],                     // 条内图的视差系数
@@ -661,6 +676,19 @@
     gsap.to(s.el, { backgroundColor: c || SLAT_BG, duration: dur, ease: 'none' });
     gsap.to(fades, { opacity: c ? 0 : 1, duration: dur, ease: 'none' });
     if (!c) { cpPainted = null; gsap.set(s.el, { clearProps: 'backgroundColor', delay: dur + 0.02 }); }
+  }
+
+  // 点开前先在条里原地播一遍 gif（0.80s = 8 帧 × 100ms），播完接着跑展开动画。
+  // 面板本来就是从那根条的矩形长出来的，所以接得上、不会跳。
+  function playGifThen(s, gi) {
+    if (!s || !s.gif || s.gifBusy || cpOpen) return;
+    s.gifBusy = true;
+    s.gif.style.opacity = '1';                  // gif 不透明，直接盖住静图
+    setTimeout(function () {
+      s.gif.style.opacity = '0';
+      s.gifBusy = false;
+      openPanel(gi);
+    }, 820);                                     // 留一点点余量
   }
 
   function openPanel(i) {
