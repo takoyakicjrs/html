@@ -270,6 +270,8 @@
   if ((cpm = location.search.match(/[?&]pi=([\d.]+)/))) CP_PW = parseFloat(cpm[1]) / 100;
   if ((cpm = location.search.match(/[?&]cd=([\d.]+)/))) CP_CD = parseFloat(cpm[1]);
   if ((cpm = location.search.match(/[?&]fx=([\d.]+)/))) FX_REL = parseFloat(cpm[1]);
+  var OW_SCALE = 1;      // 顶部轮子文字的整体缩放（?ow=0.7 这种；只乘字号与行距，不动位置）
+  if ((cpm = location.search.match(/[?&]ow=([\d.]+)/))) OW_SCALE = parseFloat(cpm[1]);
 
   // ================= 栏目 =================
   // imgs 里一格 = 一根条：写图片路径就有图，写 '' 就是「先空着」（留 .slat 的灰底），等你给图再填。
@@ -494,8 +496,8 @@
   var wheel = OptionWheel.create(document.getElementById('wheel'), SECTIONS, {
     defaultSelected: 0,
     side: 'right',
-    fontSize: 1.5,
-    spacing: 1.9,
+    fontSize: 1.5 * OW_SCALE,
+    spacing: 1.9 * OW_SCALE,
     curve: 2,
     tilt: 6,
     blur: 1.5,
