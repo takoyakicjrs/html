@@ -439,6 +439,8 @@
       var ds = (s.x + base + W / 2) - mid;
       var off = soft(ds, s.k, MAXD);
       s.img.style.transform = 'translate3d(' + off.toFixed(2) + 'px,0,0)';
+      // gif 那层要跟着静图同一个位移，否则它一出现就停回初始位置、和当前视差对不上（她报的 bug）
+      if (s.gif) s.gif.style.transform = 'translate3d(' + off.toFixed(2) + 'px,0,0)';
       // 特效层跟着同一个基准位移，再额外错开一点（条条到屏幕中间时错开量回到 0，静止就重合）
       if (s.fx) {
         // 特效层的图只比立绘宽一点（盒子 = 300% 条宽 → 还能多滑 W 就到图边）。
