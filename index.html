@@ -210,7 +210,7 @@
     // 03 一去不复返之夜
     { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
-    { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '03', name: '黎咏坤', portrait: '', noFallback: true, desc: '症候：神脑演算|幻象惑星|炼金化形\n\n结社所属\n身为最为年长的那一位，\n总是带着谋划什么的笑容' },
     { no: '04', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     // 04 暧昧十全
     { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
@@ -227,9 +227,9 @@
     { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     { no: '03', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
-    { no: '04', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '04', name: '一世月 甘利', portrait: '', noFallback: true, desc: '症候：变异魔兽|疾速灵猿\n\nUGN特工\n也许能在支部所在城市的某家奶茶店见到他' },
     // 08 Black and White
-    { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
+    { no: '01', name: '黑袍', portrait: '', noFallback: true, desc: '症候：伪神天锁 \n\n曾是“凶手”的男子。' },
     { no: '02', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
     // 09 厄琉西斯的密仪
     { no: '01', name: '名字占位', portrait: '', desc: '这里是一两行假文，先占着位置。\n以后换成真的角色介绍。' },
@@ -269,12 +269,12 @@
   var BLOCKS = [
     { idx: '01', name: '红紫法典',              imgs: ['images/1.png', ''], colors: ['#274FE3'] },   // 第 1 根 = 1.png；展开色取图里那个蓝
     { idx: '02', name: '苍苍计划',              imgs: ['', ''] },
-    { idx: '03', name: '一去不复返之夜',        imgs: ['', '', '', ''] },
+    { idx: '03', name: '一去不复返之夜',        imgs: ['', '', 'images/老爷.jpg', ''], colors: ['', '', '#AD1F1B'] },   // 第 3 根 = 老爷.jpg（黎咏坤）；展开色取图里那个暗红
     { idx: '04', name: '暧昧十全',              imgs: ['', '', '', ''] },
     { idx: '05', name: '门外汉的矜持',          imgs: ['', ''] },
     { idx: '06', name: '恶德的病魔',            imgs: ['', ''] },
-    { idx: '07', name: '生斩',                  imgs: ['', '', '', ''] },
-    { idx: '08', name: 'Black and White', imgs: ['images/bw-1.jpg', 'images/bw-2.jpg'] },
+    { idx: '07', name: '生斩',                  imgs: ['', '', '', 'images/灾兽.jpg'], colors: ['', '', '', '#182889'] },   // 第 4 根 = 灾兽.jpg（一世月 甘利）；展开色取图里那个深蓝
+    { idx: '08', name: 'Black and White', imgs: ['images/黑袍.jpg', 'images/bw-2.jpg'], colors: ['#000000'] },   // 第 1 根 = 黑袍.jpg（黑白图提不出色 → 面板用纯黑）
     { idx: '09', name: '厄琉西斯的密仪',        imgs: ['', '', '', ''] },
     { idx: '10', name: '被剔除者的遗言',        imgs: ['images/赤泊濑尾.jpg', 'images/rain-2.jpg', 'images/rain-3.jpg', 'images/rain-1.jpg'], colors: ['#D50016'], noColor: true },   // 第 1 根 = 赤泊濑尾.jpg；展开色取图里那个红
     { idx: '11', name: '暂定',                  imgs: ['images/rain-1.jpg', 'images/rain-2.jpg', 'images/rain-3.jpg'] }
