@@ -40,6 +40,11 @@
     color: #111;
     font-family: "WenYuan Sans SC", "MS PGothic", "Microsoft YaHei", sans-serif;
   }
+
+  /* 整层背景色：铺在所有内容最底下（条条那层是 2、首屏白布是 3、轮子是 1，所以给 0）
+     换色时机跟顶部轮子同一套；0.3s 过渡（两个纯色之间，不是渐变） */
+  #bgTint { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background: #fff; transition: background-color .3s ease; }
   .sm-logo { visibility: hidden; }
 
   /* ---------- 主页：钉住的一屏，滚过就淡出（先空着） ---------- */
@@ -142,6 +147,8 @@
 </style>
 </head>
 <body>
+
+<div id="bgTint"></div>
 
 <div class="home" id="home">
   <div class="hint">SCROLL</div>
@@ -286,8 +293,8 @@
   // noColor: true = 这一栏先不上色（不参与配色轮转，条条不盖色、点开后底色用白），等清单来了再配。
   // colors  = 给「第 n 根」单独指定展开色（位置对齐 imgs，没写的往 5 色轮转里落）。
   var BLOCKS = [
-    { idx: '01', name: '红紫法典',              imgs: ['images/1.png', ''], colors: ['#274FE3'] },   // 第 1 根 = 1.png；展开色取图里那个蓝
-    { idx: '02', name: '苍苍计划',              imgs: ['', ''] },
+    { idx: '01', name: '红紫法典',              imgs: ['images/1.png', ''], colors: ['#274FE3'], bg: '#FF009D' },   // 第 1 根 = 1.png；展开色取图里那个蓝；整页背景色 = 她给的 #FF009D
+    { idx: '02', name: '苍苍计划',              imgs: ['', ''], bg: '#00EAFF' },   // 整页背景色 = 她给的 #00EAFF
     { idx: '03', name: '一去不复返之夜',        imgs: ['', '', 'images/老爷.jpg', ''], colors: ['', '', '#AD1F1B'] },   // 第 3 根 = 老爷.jpg（黎咏坤）；展开色取图里那个暗红
     { idx: '04', name: '暧昧十全',              imgs: ['', '', '', ''] },
     { idx: '05', name: '门外汉的矜持',          imgs: ['', ''] },
@@ -306,6 +313,7 @@
   var bgEl    = document.getElementById('bgLayer');
   var fgEl    = document.getElementById('fgLayer');
   var wheelHangEl = document.getElementById('wheelHang');
+  var bgTintEl    = document.getElementById('bgTint');
 
   var vw = 0, vh = 0, H = 0, W = 0, GAP = 0, PITCH = 0;
   var TOPA = 0, TOPB = 0, BLOCK_W = 0, BLOCK_GAP = 0, TAIL = 0, TRACK_W = 0, TRAVEL = 0, MAXD = 0;
@@ -481,6 +489,9 @@
     if (idx !== lastIdx) {
       lastIdx = idx;
       if (wheel) { syncing = true; wheel.select(idx); syncing = false; }
+      // 整层背景色：跟轮子同一个时机一起换（idx=0 是 Home → 白；栏里没写 bg 的也留白）
+      if (bgTintEl) bgTintEl.style.backgroundColor =
+        (idx === 0 ? '#FFFFFF' : (BLOCKS[idx - 1].bg || '#FFFFFF'));
     }
 
     startSpread();
