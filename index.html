@@ -43,7 +43,10 @@
 
   /* 整层背景色：铺在所有内容最底下（条条那层是 2、首屏白布是 3、轮子是 1，所以给 0）
      换色时机跟顶部轮子同一套；0.3s 过渡（两个纯色之间，不是渐变） */
-  #bgTint { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  /* 色块不再铺满全屏（她说太瞎眼）→ 收成屏幕正中的一条横带：横贯全宽、
+     高度由 --band-h 控制（默认 52%，跟她画的那张示意图一致）。仍在所有内容之下 */
+  #bgTint { position: fixed; left: 0; right: 0; top: 50%; height: var(--band-h, 52%);
+            transform: translateY(-50%); z-index: 0; pointer-events: none;
             background: #fff; transition: background-color .3s ease; }
   .sm-logo { visibility: hidden; }
 
@@ -84,19 +87,21 @@
                     object-fit: cover; object-position: center;
                     opacity: 0; transition: opacity .12s linear; }
 
+  /* 条条背后那团字：原本是 11vh 的栏名大字（近白、只做纵深）→
+     现在改成小字多行文案（她 2026-09-18 定：大字改小字，内容换成剧本简介） */
   .bg-word {
     position: absolute; top: 50%;
-    font-size: 11vh; line-height: 1; letter-spacing: .03em;
-    color: #f2f2f2; white-space: nowrap; user-select: none;
-    font-weight: 700;
+    width: 34em; max-width: 46vw;
+    font-size: 13px; line-height: 1.8; letter-spacing: .02em;
+    color: var(--lab-ink, #111); white-space: pre-line; user-select: none;
     will-change: transform;
   }
 
   .label { position: absolute; top: 0; height: 100%; will-change: transform; }
   .label .box { position: absolute; left: 0; top: 50%; transform: translateY(-50%); white-space: nowrap; }
-  .label .rule { width: 44px; height: 1px; background: #111; margin-bottom: 14px; }
-  .label .idx { font-size: 10px; letter-spacing: 4px; color: #b0b0b0; }
-  .label .name { margin-top: 8px; font-size: 21px; letter-spacing: .02em; color: #111; font-weight: 700; }
+  /* 颜色改成跟当前底色联动的变量：有底色的栏用白字，白底上自动换回深色 */
+  .label .idx { font-size: 10px; letter-spacing: 4px; color: var(--lab-ink-dim, #b0b0b0); }
+  .label .name { margin-top: 8px; font-size: 13px; letter-spacing: .02em; color: var(--lab-ink, #111); font-weight: 700; }
 
   /* ---------- 顶部悬挂的轮子（常驻区块指示器） ---------- */
   .wheel-hang {
@@ -293,7 +298,8 @@
   // noColor: true = 这一栏先不上色（不参与配色轮转，条条不盖色、点开后底色用白），等清单来了再配。
   // colors  = 给「第 n 根」单独指定展开色（位置对齐 imgs，没写的往 5 色轮转里落）。
   var BLOCKS = [
-    { idx: '01', name: '红紫法典',              imgs: ['images/1.png', ''], colors: ['#274FE3'], bg: '#FF009D' },   // 第 1 根 = 1.png；展开色取图里那个蓝；整页背景色 = 她给的 #FF009D
+    { idx: '01', name: '红紫法典',              imgs: ['images/1.png', ''], colors: ['#274FE3'], bg: '#FF009D',   // 第 1 根 = 1.png；展开色取图里那个蓝；色带色 = 她给的 #FF009D
+      sub: '年轻人之间流传着奇怪的传闻。\n——【红紫法典】。只要看一眼便能实现愿望的红色文字。\n它的内容仿佛是一个不可思议的恶作剧。\n前去执行任务的他们，尚不知晓这一切的真相。\nダブルクロス The 3rd Edition\n『Code Magenta【红紫法典】』\n双重十字——那是代表着背叛的字句。' },
     { idx: '02', name: '苍苍计划',              imgs: ['', ''], bg: '#00EAFF' },   // 整页背景色 = 她给的 #00EAFF
     { idx: '03', name: '一去不复返之夜',        imgs: ['', '', 'images/老爷.jpg', ''], colors: ['', '', '#AD1F1B'] },   // 第 3 根 = 老爷.jpg（黎咏坤）；展开色取图里那个暗红
     { idx: '04', name: '暧昧十全',              imgs: ['', '', '', ''] },
@@ -314,6 +320,25 @@
   var fgEl    = document.getElementById('fgLayer');
   var wheelHangEl = document.getElementById('wheelHang');
   var bgTintEl    = document.getElementById('bgTint');
+
+  // 色带高度：?band=0.40 / 0.52 / 0.65（默认 0.52，跟她画的示意图一致）
+  var _bm = location.search.match(/[?&]band=([0-9.]+)/);
+  if (_bm) document.documentElement.style.setProperty('--band-h', (_bm[1] * 100) + '%');
+
+  // 按底色亮度挑一套 ink：黑字白字哪个对比强用哪个；暗底再给个淡一点的次要色
+  function pickInk(c) {
+    var h = String(c).replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var r = parseInt(h.substr(0, 2), 16) / 255, g = parseInt(h.substr(2, 2), 16) / 255,
+        b = parseInt(h.substr(4, 2), 16) / 255;
+    function lin(x) { return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }
+    var L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    // 她要的是白色：白字压在这个底上只要 ≥3:1 就用白字（品红 3.66:1 → 白字）
+    // 亮底上白字会糊（亮青只有 1.48:1）→ 那才自动退回深色（深色在亮青上是 14.2:1）
+    var onWhite = 1.05 / (L + 0.05);
+    return onWhite >= 3.0
+      ? ['#FFFFFF', 'rgba(255,255,255,.62)'] : ['#111111', '#b0b0b0'];
+  }
 
   var vw = 0, vh = 0, H = 0, W = 0, GAP = 0, PITCH = 0;
   var TOPA = 0, TOPB = 0, BLOCK_W = 0, BLOCK_GAP = 0, TAIL = 0, TRACK_W = 0, TRAVEL = 0, MAXD = 0;
@@ -357,7 +382,7 @@
       var bx = x0 + vw * 0.45;
       var w = document.createElement('div');
       w.className = 'bg-word';
-      w.textContent = b.name;
+      w.textContent = (b.sub || b.name);   // 有文案就用多行小字文案，没写就退回栏名
       w.style.left = bx + 'px';
       bgEl.appendChild(w);
       bgWords.push({ el: w, x: bx });
@@ -367,7 +392,6 @@
       lb.className = 'label';
       lb.style.left = (x0 + vw * LABEL_X) + 'px';
       lb.innerHTML = '<div class="box">' +
-        '<div class="rule"></div>' +
         '<div class="idx">' + b.idx + '</div>' +
         '<div class="name">' + b.name + '</div></div>';
       fgEl.appendChild(lb);
@@ -489,9 +513,13 @@
     if (idx !== lastIdx) {
       lastIdx = idx;
       if (wheel) { syncing = true; wheel.select(idx); syncing = false; }
-      // 整层背景色：跟轮子同一个时机一起换（idx=0 是 Home → 白；栏里没写 bg 的也留白）
-      if (bgTintEl) bgTintEl.style.backgroundColor =
-        (idx === 0 ? '#FFFFFF' : (BLOCKS[idx - 1].bg || '#FFFFFF'));
+      // 色带颜色：跟轮子同一个时机一起换（idx=0 是 Home → 白；栏里没写 bg 的也留白）
+      var bgc = (idx === 0 ? '#FFFFFF' : (BLOCKS[idx - 1].bg || '#FFFFFF'));
+      if (bgTintEl) bgTintEl.style.backgroundColor = bgc;
+      // 底上有了颜色，字就得换边站：自动挑一套看得清的 ink（白底上自动退回深色）
+      var ink = pickInk(bgc);
+      document.documentElement.style.setProperty('--lab-ink', ink[0]);
+      document.documentElement.style.setProperty('--lab-ink-dim', ink[1]);
     }
 
     startSpread();
