@@ -100,8 +100,15 @@
   .label { position: absolute; top: 0; height: 100%; will-change: transform; }
   .label .box { position: absolute; left: 0; top: 50%; transform: translateY(-50%); white-space: nowrap; }
   /* 颜色改成跟当前底色联动的变量：有底色的栏用白字，白底上自动换回深色 */
-  .label .idx { font-size: 10px; letter-spacing: 4px; color: var(--lab-ink-dim, #b0b0b0); }
-  .label .name { margin-top: 8px; font-size: 13px; letter-spacing: .02em; color: var(--lab-ink, #111); font-weight: 700; }
+  /* 「01」：10px 小灰字 → 大号粗体，位置挪到色带上边缘的正上方（条条上方），颜色取本栏底色 */
+  .label .idx { position: absolute; left: 0; top: calc(50vh - (var(--band-h, 52%) / 2));
+                transform: translateY(-100%);
+                font-size: var(--ln, 11vh); line-height: 1; letter-spacing: .02em;
+                font-weight: 700; color: var(--lab-01, #111); }
+  /* 栏名：13px 小字 → 大字；宽度压到 2 个字宽 → 四个字自动排成 2×2（照她画的示意图） */
+  .label .name { margin-top: 8px; font-size: var(--lt, 9vh); line-height: 1.06; letter-spacing: .02em;
+                 width: 2em; white-space: normal; word-break: break-all;
+                 color: var(--lab-ink, #111); font-weight: 700; }
 
   /* ---------- 顶部悬挂的轮子（常驻区块指示器） ---------- */
   .wheel-hang {
@@ -324,6 +331,11 @@
   // 色带高度：?band=0.40 / 0.52 / 0.65（默认 0.52，跟她画的示意图一致）
   var _bm = location.search.match(/[?&]band=([0-9.]+)/);
   if (_bm) document.documentElement.style.setProperty('--band-h', (_bm[1] * 100) + '%');
+  // 左侧两处字号（vh）：?lt= 栏名 / ?ln= 「01」（默认 9 / 7）
+  var _lt = location.search.match(/[?&]lt=([0-9.]+)/);
+  if (_lt) document.documentElement.style.setProperty('--lt', _lt[1] + 'vh');
+  var _ln = location.search.match(/[?&]ln=([0-9.]+)/);
+  if (_ln) document.documentElement.style.setProperty('--ln', _ln[1] + 'vh');
 
   // 按底色亮度挑一套 ink：黑字白字哪个对比强用哪个；暗底再给个淡一点的次要色
   function pickInk(c) {
@@ -391,8 +403,10 @@
       var lb = document.createElement('div');
       lb.className = 'label';
       lb.style.left = (x0 + vw * LABEL_X) + 'px';
-      lb.innerHTML = '<div class="box">' +
-        '<div class="idx">' + b.idx + '</div>' +
+      // 「01」直接挂在 .label 下（不在 .box 里）：这样 top 的百分比才按整个视口算，
+      // 才能停在色带上边缘；放在 .box 里的话百分比是按 .box 高度算的（实测会掉进色带中下部）
+      lb.innerHTML = '<div class="idx">' + b.idx + '</div>' +
+        '<div class="box">' +
         '<div class="name">' + b.name + '</div></div>';
       fgEl.appendChild(lb);
       labels.push({ el: lb, x: x0 + vw * LABEL_X });
@@ -520,6 +534,8 @@
       var ink = pickInk(bgc);
       document.documentElement.style.setProperty('--lab-ink', ink[0]);
       document.documentElement.style.setProperty('--lab-ink-dim', ink[1]);
+      // 「01」用本栏的色画；白底栏没有颜色，就退回深色（不然白底上白字会消失）
+      document.documentElement.style.setProperty('--lab-01', (bgc === '#FFFFFF' ? ink[0] : bgc));
     }
 
     startSpread();
