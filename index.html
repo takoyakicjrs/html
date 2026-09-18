@@ -87,11 +87,13 @@
                     object-fit: cover; object-position: center;
                     opacity: 0; transition: opacity .12s linear; }
 
-  /* 条条背后那团字：原本是 11vh 的栏名大字（近白、只做纵深）→
-     现在改成小字多行文案（她 2026-09-18 定：大字改小字，内容换成剧本简介） */
+  /* 每栏右侧的文案槽（2026-09-18 定）：从条条背后挪到条条右边，不会再被条条压住。
+     位置由「三段等距」倒推：左块→条条 208px，条条→文案槽约 200px；
+     槽位左缘固定在屏幕约 76%，宽 23em ≈ 300px（一行约 23 字），右边还剩约 38px。
+     条条位置不动；各栏右侧的位子靠加大栏间距（GAPB_R）提前留出来。 */
   .bg-word {
     position: absolute; top: 50%;
-    width: 34em; max-width: 46vw;
+    width: 23em;
     font-size: 13px; line-height: 1.8; letter-spacing: .02em;
     color: var(--lab-ink, #111); white-space: pre-line; user-select: none;
     will-change: transform;
@@ -206,7 +208,10 @@
   var TOP_B_R = 0.39;   // 低条顶边（和高条错开 25% 屏高）
   var GAP_R   = 0.30;   // 条间距 = 0.30 × 条宽
   var BLOCK_R = 0.50;   // 每个栏目块宽 = 0.50 × 视口宽
-  var GAPB_R  = 0.68;   // 相邻栏目块的起点间距 = 0.68 × 视口宽
+  var GAPB_R  = 0.825;  // 相邻栏目块的起点间距 = 0.825 × 视口宽
+                        // 2026-09-18：从 0.68 加大 —— 每栏右侧要放文案槽（约 300px），
+                        // 不加大的话下一栏的内容会挤到这个槽边上。条条的屏幕位置只由
+                        // SLAT_X + 块心决定（跟 GAPB 无关），所以条条位置一字不动。
   var LABEL_X = 0.065;  // 块内：文字左端
   var SLAT_X  = 0.30;   // 块内：条条组左端
   var K_IMG   = [0.032, 0.078, 0.052];  // 每根条里的图 —— 移速差就靠这个
@@ -391,7 +396,9 @@
       var x0 = bi * BLOCK_GAP;
 
       // 背景大字（很淡，只做纵深）——放在条条那一侧，避开左边的文字
-      var bx = x0 + vw * 0.45;
+      // 条条右侧的文案槽：左缘大致落在屏幕 76% 处（0.5135 是把实测的条条右缘 938px + 约 104px
+      // 间隙、再去掉块心映射 offset 反推出来的；下面每帧的位移也从「居中」改成了「左缘对齐」）
+      var bx = x0 + vw * 0.5135;
       var w = document.createElement('div');
       w.className = 'bg-word';
       w.textContent = (b.sub || b.name);   // 有文案就用多行小字文案，没写就退回栏名
@@ -505,7 +512,7 @@
     for (i = 0; i < bgWords.length; i++) {
       var b = bgWords[i];
       var db = (b.x + base) - mid;
-      b.el.style.transform = 'translate(-50%,-50%) translate3d(' + soft(db, K_BG, 40).toFixed(2) + 'px,0,0)';
+      b.el.style.transform = 'translate(0,-50%) translate3d(' + soft(db, K_BG, 40).toFixed(2) + 'px,0,0)';
       // 离画面中心太远就淡掉，免得视口边缘留半截淡字
       b.el.style.opacity = clamp(1 - (Math.abs(db) - vw * 0.25) / (vw * 0.20), 0, 1).toFixed(3);
     }
