@@ -43,11 +43,14 @@
 
   /* 整层背景色：铺在所有内容最底下（条条那层是 2、首屏白布是 3、轮子是 1，所以给 0）
      换色时机跟顶部轮子同一套；0.3s 过渡（两个纯色之间，不是渐变） */
-  /* 色块不再铺满全屏（她说太瞎眼）→ 收成屏幕正中的一条横带：横贯全宽、
-     高度由 --band-h 控制（默认 52%，跟她画的那张示意图一致）。仍在所有内容之下 */
-  #bgTint { position: fixed; left: 0; right: 0; top: 50%; height: var(--band-h, 52%);
-            transform: translateY(-50%); z-index: 0; pointer-events: none;
-            background: #fff; transition: background-color .3s ease; }
+  /* 色带（两层）：底层 #bgTint 常驻当前颜色；上层 #bgTint2 用来「硬边扫描」换色 ——
+     新色像刷墙一样从一侧扫过来盖住旧色，两色永不同时出现在一块地方，
+     所以不会生成 sRGB 插值那坨发灰的中间色（她 2026-09-18 选的方案一）。
+     方向跟着换栏方向：往后滚（下一栏）从右扫入，往回滚从左扫入。
+     高度由 --band-h 控制（默认 52%）；扫描时长 ?wipe=（默认 0.3s）。 */
+  #bgTint, #bgTint2 { position: fixed; left: 0; right: 0; top: 50%; height: var(--band-h, 52%);
+            transform: translateY(-50%); z-index: 0; pointer-events: none; background: #fff; }
+  #bgTint2 { transition: clip-path .3s linear; clip-path: inset(0 0 0 100%); }
   .sm-logo { visibility: hidden; }
 
   /* ---------- 主页：钉住的一屏，滚过就淡出（先空着） ---------- */
@@ -163,6 +166,7 @@
 <body>
 
 <div id="bgTint"></div>
+<div id="bgTint2"></div>
 
 <div class="home" id="home">
   <div class="hint">SCROLL</div>
@@ -332,6 +336,12 @@
   var fgEl    = document.getElementById('fgLayer');
   var wheelHangEl = document.getElementById('wheelHang');
   var bgTintEl    = document.getElementById('bgTint');
+  var bgTint2El   = document.getElementById('bgTint2');
+
+  // 换色扫描时长：?wipe=0.3（秒）
+  var WIPE_S   = parseFloat((location.search.match(/[?&]wipe=([0-9.]+)/) || [])[1] || '0.3');
+  var WIPE_MS  = WIPE_S * 1000;
+  var wipeTimer = null, inkTimer = null;
 
   // 色带高度：?band=0.40 / 0.52 / 0.65（默认 0.52，跟她画的示意图一致）
   var _bm = location.search.match(/[?&]band=([0-9.]+)/);
@@ -532,17 +542,36 @@
       }
     }
     if (idx !== lastIdx) {
+      var prevIdx = lastIdx;   // 扫描方向要用：idx > prevIdx = 往后滚
       lastIdx = idx;
       if (wheel) { syncing = true; wheel.select(idx); syncing = false; }
-      // 色带颜色：跟轮子同一个时机一起换（idx=0 是 Home → 白；栏里没写 bg 的也留白）
+      // 换色 = 硬边扫描：上层铺新色、clip-path 扫开盖住旧色。
+      // 两色永不同块 → 不会出现 sRGB 插值那坨发灰的中间色（#8075CE）。
       var bgc = (idx === 0 ? '#FFFFFF' : (BLOCKS[idx - 1].bg || '#FFFFFF'));
-      if (bgTintEl) bgTintEl.style.backgroundColor = bgc;
-      // 底上有了颜色，字就得换边站：自动挑一套看得清的 ink（白底上自动退回深色）
+      var fwd = (idx > prevIdx);   // 往后滚 = 下一栏 → 从右扫入；往回滚 → 从左扫入
+      clearTimeout(wipeTimer); clearTimeout(inkTimer);
+      if (bgTintEl && bgTint2El) {
+        bgTint2El.style.transition = 'none';
+        bgTint2El.style.clipPath = fwd ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)';
+        bgTint2El.style.backgroundColor = bgc;
+        void bgTint2El.offsetWidth;   // 强制重排：保证等下这一帧是从「还没扫开」起算
+        bgTint2El.style.transition = 'clip-path ' + WIPE_S + 's linear';
+        bgTint2El.style.clipPath = 'inset(0 0 0 0)';
+        wipeTimer = setTimeout(function () {   // 扫完：底色换成新色，上层收回（同色，收回去看不见）
+          bgTintEl.style.backgroundColor = bgc;
+          bgTint2El.style.transition = 'none';
+          bgTint2El.style.clipPath = fwd ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)';
+        }, WIPE_MS + 60);
+      } else if (bgTintEl) {
+        bgTintEl.style.backgroundColor = bgc;
+      }
+      // 字色延后到扫描盖过大半再换：不然白字会短暂压在亮青上糊掉（1.48:1）
       var ink = pickInk(bgc);
-      document.documentElement.style.setProperty('--lab-ink', ink[0]);
-      document.documentElement.style.setProperty('--lab-ink-dim', ink[1]);
-      // 「01」用本栏的色画；白底栏没有颜色，就退回深色（不然白底上白字会消失）
-      document.documentElement.style.setProperty('--lab-01', (bgc === '#FFFFFF' ? ink[0] : bgc));
+      inkTimer = setTimeout(function () {
+        document.documentElement.style.setProperty('--lab-ink', ink[0]);
+        document.documentElement.style.setProperty('--lab-ink-dim', ink[1]);
+        document.documentElement.style.setProperty('--lab-01', (bgc === '#FFFFFF' ? ink[0] : bgc));
+      }, Math.round(WIPE_MS * 0.6));
     }
 
     startSpread();
