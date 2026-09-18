@@ -336,7 +336,10 @@
 
   // 色带连续过渡：?wash=0.80 = 两栏中间那一下往白里洗多少（0=不洗、1=洗成全白）
   var WASH = parseFloat((location.search.match(/[?&]wash=([0-9.]+)/) || [])[1] || '0.80');
-  var lastBandBg = '';
+  // 文字色连续过渡的窗口（按色带亮度）：L 低于 INK_L0 用白字、高于 INK_L1 用深字，中间连续混
+  var INK_L0 = parseFloat((location.search.match(/[?&]ink0=([0-9.]+)/) || [])[1] || '0.36');
+  var INK_L1 = parseFloat((location.search.match(/[?&]ink1=([0-9.]+)/) || [])[1] || '0.46');
+  var lastBandBg = '', lastInk = '', lastInkDim = '', last01 = '';
 
   function hex2rgb(h) {
     h = String(h).replace('#', '');
@@ -353,37 +356,57 @@
     var A = hex2rgb(a), B = hex2rgb(b);
     return rgbHex([0, 1, 2].map(function (i) { return A[i] + (B[i] - A[i]) * f; }));
   }
+  function lumOfHex(h) {          // 相对亮度（跟 WCAG 一致）
+    var c = hex2rgb(h);
+    function lin(v) { v = v / 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    return 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+  }
 
   // 色带停靠点：u 是连续栏坐标，整数 = 正好停在那栏中心（1 = 第 1 栏…）
   var BAND_STOPS = [];
+  function c01Of(hex) {   // 「01」在这个底色上该用哪色：有底色就用底色，白底退回 ink
+    return (hex === '#FFFFFF') ? pickInk(hex)[0] : hex;
+  }
   function buildBandStops() {
+    var i;
     BAND_STOPS = [{ u: 1 - (vw / 2 + BLOCK_W / 2) / BLOCK_GAP, c: '#FFFFFF' }];   // Home 锚点（T=0 的位置）
     BLOCKS.forEach(function (b, bi) { BAND_STOPS.push({ u: bi + 1, c: b.bg || '#FFFFFF' }); });
     BAND_STOPS.push({ u: BLOCKS.length + 1, c: '#FFFFFF' });             // 末尾兜底
+    for (i = 0; i < BAND_STOPS.length; i++) BAND_STOPS[i].c01 = c01Of(BAND_STOPS[i].c);
   }
-  function bandColorAt(u) {
-    if (!BAND_STOPS.length) return '#FFFFFF';
-    var n = BAND_STOPS.length, i, lo = BAND_STOPS[0], hi = BAND_STOPS[n - 1];
-    if (u <= lo.u) return lo.c;
-    if (u >= hi.u) return hi.c;
-    for (i = 0; i < n - 1; i++) {
-      if (u >= BAND_STOPS[i].u && u <= BAND_STOPS[i + 1].u) { lo = BAND_STOPS[i]; hi = BAND_STOPS[i + 1]; break; }
+  function bandInfo(u) {
+    var n = BAND_STOPS.length;
+    if (!n) return null;
+    var i, lo = BAND_STOPS[0], hi = BAND_STOPS[n - 1];
+    if (u <= lo.u) { hi = lo; }
+    else if (u >= hi.u) { lo = hi; }
+    else {
+      for (i = 0; i < n - 1; i++) {
+        if (u >= BAND_STOPS[i].u && u <= BAND_STOPS[i + 1].u) { lo = BAND_STOPS[i]; hi = BAND_STOPS[i + 1]; break; }
+      }
     }
-    var f = (hi.u === lo.u) ? 0 : (u - lo.u) / (hi.u - lo.u);
-    // 中间站：两端颜色先混出个平均色，再往白里洗 WASH → 中途是淡色雾，不是发灰的暗色
+    var f = (hi === lo || hi.u === lo.u) ? 0 : clamp((u - lo.u) / (hi.u - lo.u), 0, 1);
+    // 色带：中间站 = 两端平均色往白里洗 WASH → 中途是淡色雾，不是发灰的暗色
     var mid = mixHex(mixHex(lo.c, hi.c, 0.5), '#FFFFFF', WASH);
-    return f <= 0.5 ? mixHex(lo.c, mid, f * 2) : mixHex(mid, hi.c, (f - 0.5) * 2);
+    var c = f <= 0.5 ? mixHex(lo.c, mid, f * 2) : mixHex(mid, hi.c, (f - 0.5) * 2);
+    // 文字色：按色带亮度连续混（窗口窄 → 过渡短，且正好落在色带最淡那段）
+    var k = clamp((lumOfHex(c) - INK_L0) / (INK_L1 - INK_L0), 0, 1);
+    return { c: c, k: k, ink: mixHex('#FFFFFF', '#111111', k),
+             c01: mixHex(lo.c01 || lo.c, hi.c01 || hi.c, f) };
   }
   function applyBand(T) {
     if (!bgTintEl) return;
     var u = (T - vw / 2 - BLOCK_W / 2) / BLOCK_GAP + 1;   // 居中条件是 T = x0 + BLOCK_W/2 + vw/2，别漏了 vw/2
-    var c = bandColorAt(u);
-    if (c === lastBandBg) return;      // 颜色没变就不写，停住时零开销
-    lastBandBg = c;
-    bgTintEl.style.backgroundColor = c;
-    var ink = pickInk(c);
-    document.documentElement.style.setProperty('--lab-ink', ink[0]);
-    document.documentElement.style.setProperty('--lab-ink-dim', ink[1]);
+    var b = bandInfo(u);
+    if (!b) return;
+    if (b.c !== lastBandBg) { lastBandBg = b.c; bgTintEl.style.backgroundColor = b.c; }
+    // 文字色跟同一条进度连续混（她：色带丝滑了，文字也得同样丝滑）
+    if (b.ink !== lastInk) { lastInk = b.ink; document.documentElement.style.setProperty('--lab-ink', b.ink); }
+    // 10px 的小编号看不出硬翻，仍按中点切（免得白底上灰字发糊）
+    var dim = b.k >= 0.5 ? '#b0b0b0' : 'rgba(255,255,255,.62)';
+    if (dim !== lastInkDim) { lastInkDim = dim; document.documentElement.style.setProperty('--lab-ink-dim', dim); }
+    // 「01」填色同一条进度（不洗淡，免得变浅压在浅色带上看不见）
+    if (b.c01 !== last01) { last01 = b.c01; document.documentElement.style.setProperty('--lab-01', b.c01); }
   }
 
   // 色带高度：?band=0.40 / 0.52 / 0.65（默认 0.52，跟她画的示意图一致）
@@ -589,10 +612,7 @@
     if (idx !== lastIdx) {
       lastIdx = idx;
       if (wheel) { syncing = true; wheel.select(idx); syncing = false; }
-      // 色带已经改成「按滚动位置连续算」（在 layout 开头调 applyBand），这里只管「01」的颜色
-      var bgc = (idx === 0 ? '#FFFFFF' : (BLOCKS[idx - 1].bg || '#FFFFFF'));
-      var ink = pickInk(bgc);
-      document.documentElement.style.setProperty('--lab-01', (bgc === '#FFFFFF' ? ink[0] : bgc));
+      // 色带、文字色、「01」的颜色都已经改成「按滚动位置连续算」（layout 开头调 applyBand）
     }
 
     startSpread();
