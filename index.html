@@ -43,14 +43,12 @@
 
   /* 整层背景色：铺在所有内容最底下（条条那层是 2、首屏白布是 3、轮子是 1，所以给 0）
      换色时机跟顶部轮子同一套；0.3s 过渡（两个纯色之间，不是渐变） */
-  /* 色带（两层）：底层 #bgTint 常驻当前颜色；上层 #bgTint2 用来「硬边扫描」换色 ——
-     新色像刷墙一样从一侧扫过来盖住旧色，两色永不同时出现在一块地方，
-     所以不会生成 sRGB 插值那坨发灰的中间色（她 2026-09-18 选的方案一）。
-     方向跟着换栏方向：往后滚（下一栏）从右扫入，往回滚从左扫入。
-     高度由 --band-h 控制（默认 52%）；扫描时长 ?wipe=（默认 0.3s）。 */
-  #bgTint, #bgTint2 { position: fixed; left: 0; right: 0; top: 50%; height: var(--band-h, 52%);
+  /* 色带：颜色是「滚动位置的连续函数」（她 2026-09-18 选的第三条）——
+     停住时 = 那一栏的原色；滚到两栏中间时先把色洗淡、再上下一栏的色，
+     所以全程不会出现 sRGB 直线插值那坨发灰发暗的中间色（#8075CE，亮度 0.218）。
+     高度由 --band-h 控制（默认 52%）；洗淡程度 ?wash=（默认 0.80）。 */
+  #bgTint { position: fixed; left: 0; right: 0; top: 50%; height: var(--band-h, 52%);
             transform: translateY(-50%); z-index: 0; pointer-events: none; background: #fff; }
-  #bgTint2 { transition: clip-path .3s linear; clip-path: inset(0 0 0 100%); }
   .sm-logo { visibility: hidden; }
 
   /* ---------- 主页：钉住的一屏，滚过就淡出（先空着） ---------- */
@@ -166,7 +164,6 @@
 <body>
 
 <div id="bgTint"></div>
-<div id="bgTint2"></div>
 
 <div class="home" id="home">
   <div class="hint">SCROLL</div>
@@ -336,12 +333,58 @@
   var fgEl    = document.getElementById('fgLayer');
   var wheelHangEl = document.getElementById('wheelHang');
   var bgTintEl    = document.getElementById('bgTint');
-  var bgTint2El   = document.getElementById('bgTint2');
 
-  // 换色扫描时长：?wipe=0.3（秒）
-  var WIPE_S   = parseFloat((location.search.match(/[?&]wipe=([0-9.]+)/) || [])[1] || '0.3');
-  var WIPE_MS  = WIPE_S * 1000;
-  var wipeTimer = null, inkTimer = null;
+  // 色带连续过渡：?wash=0.80 = 两栏中间那一下往白里洗多少（0=不洗、1=洗成全白）
+  var WASH = parseFloat((location.search.match(/[?&]wash=([0-9.]+)/) || [])[1] || '0.80');
+  var lastBandBg = '';
+
+  function hex2rgb(h) {
+    h = String(h).replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)];
+  }
+  function rgbHex(c) {
+    return '#' + c.map(function (v) {
+      v = Math.max(0, Math.min(255, Math.round(v)));
+      return (v < 16 ? '0' : '') + v.toString(16);
+    }).join('').toUpperCase();
+  }
+  function mixHex(a, b, f) {
+    var A = hex2rgb(a), B = hex2rgb(b);
+    return rgbHex([0, 1, 2].map(function (i) { return A[i] + (B[i] - A[i]) * f; }));
+  }
+
+  // 色带停靠点：u 是连续栏坐标，整数 = 正好停在那栏中心（1 = 第 1 栏…）
+  var BAND_STOPS = [];
+  function buildBandStops() {
+    BAND_STOPS = [{ u: 1 - (vw / 2 + BLOCK_W / 2) / BLOCK_GAP, c: '#FFFFFF' }];   // Home 锚点（T=0 的位置）
+    BLOCKS.forEach(function (b, bi) { BAND_STOPS.push({ u: bi + 1, c: b.bg || '#FFFFFF' }); });
+    BAND_STOPS.push({ u: BLOCKS.length + 1, c: '#FFFFFF' });             // 末尾兜底
+  }
+  function bandColorAt(u) {
+    if (!BAND_STOPS.length) return '#FFFFFF';
+    var n = BAND_STOPS.length, i, lo = BAND_STOPS[0], hi = BAND_STOPS[n - 1];
+    if (u <= lo.u) return lo.c;
+    if (u >= hi.u) return hi.c;
+    for (i = 0; i < n - 1; i++) {
+      if (u >= BAND_STOPS[i].u && u <= BAND_STOPS[i + 1].u) { lo = BAND_STOPS[i]; hi = BAND_STOPS[i + 1]; break; }
+    }
+    var f = (hi.u === lo.u) ? 0 : (u - lo.u) / (hi.u - lo.u);
+    // 中间站：两端颜色先混出个平均色，再往白里洗 WASH → 中途是淡色雾，不是发灰的暗色
+    var mid = mixHex(mixHex(lo.c, hi.c, 0.5), '#FFFFFF', WASH);
+    return f <= 0.5 ? mixHex(lo.c, mid, f * 2) : mixHex(mid, hi.c, (f - 0.5) * 2);
+  }
+  function applyBand(T) {
+    if (!bgTintEl) return;
+    var u = (T - vw / 2 - BLOCK_W / 2) / BLOCK_GAP + 1;   // 居中条件是 T = x0 + BLOCK_W/2 + vw/2，别漏了 vw/2
+    var c = bandColorAt(u);
+    if (c === lastBandBg) return;      // 颜色没变就不写，停住时零开销
+    lastBandBg = c;
+    bgTintEl.style.backgroundColor = c;
+    var ink = pickInk(c);
+    document.documentElement.style.setProperty('--lab-ink', ink[0]);
+    document.documentElement.style.setProperty('--lab-ink-dim', ink[1]);
+  }
 
   // 色带高度：?band=0.40 / 0.52 / 0.65（默认 0.52，跟她画的示意图一致）
   var _bm = location.search.match(/[?&]band=([0-9.]+)/);
@@ -391,6 +434,7 @@
 
     BLOCK_W   = vw * BLOCK_R;
     BLOCK_GAP = vw * GAPB_R;
+    buildBandStops();
     TAIL      = (vw - BLOCK_W) / 2;
     TRACK_W   = (BLOCKS.length - 1) * BLOCK_GAP + BLOCK_W + TAIL;
     TRAVEL    = TRACK_W;                       // 滚到底 = 轨道刚好走完
@@ -491,6 +535,7 @@
     var y = (typeof sy === 'number' && isFinite(sy)) ? sy : window.scrollY;
     var T = clamp(y - vh, 0, TRAVEL);
     var base = vw - T;
+    applyBand(T);   // 色带 = 滚动位置的连续函数（第 3 条）
 
     trackEl.style.transform = 'translate3d(' + base + 'px,0,0)';
     bgEl.style.transform    = 'translate3d(' + base + 'px,0,0)';
@@ -542,36 +587,12 @@
       }
     }
     if (idx !== lastIdx) {
-      var prevIdx = lastIdx;   // 扫描方向要用：idx > prevIdx = 往后滚
       lastIdx = idx;
       if (wheel) { syncing = true; wheel.select(idx); syncing = false; }
-      // 换色 = 硬边扫描：上层铺新色、clip-path 扫开盖住旧色。
-      // 两色永不同块 → 不会出现 sRGB 插值那坨发灰的中间色（#8075CE）。
+      // 色带已经改成「按滚动位置连续算」（在 layout 开头调 applyBand），这里只管「01」的颜色
       var bgc = (idx === 0 ? '#FFFFFF' : (BLOCKS[idx - 1].bg || '#FFFFFF'));
-      var fwd = (idx > prevIdx);   // 往后滚 = 下一栏 → 从右扫入；往回滚 → 从左扫入
-      clearTimeout(wipeTimer); clearTimeout(inkTimer);
-      if (bgTintEl && bgTint2El) {
-        bgTint2El.style.transition = 'none';
-        bgTint2El.style.clipPath = fwd ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)';
-        bgTint2El.style.backgroundColor = bgc;
-        void bgTint2El.offsetWidth;   // 强制重排：保证等下这一帧是从「还没扫开」起算
-        bgTint2El.style.transition = 'clip-path ' + WIPE_S + 's linear';
-        bgTint2El.style.clipPath = 'inset(0 0 0 0)';
-        wipeTimer = setTimeout(function () {   // 扫完：底色换成新色，上层收回（同色，收回去看不见）
-          bgTintEl.style.backgroundColor = bgc;
-          bgTint2El.style.transition = 'none';
-          bgTint2El.style.clipPath = fwd ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)';
-        }, WIPE_MS + 60);
-      } else if (bgTintEl) {
-        bgTintEl.style.backgroundColor = bgc;
-      }
-      // 字色延后到扫描盖过大半再换：不然白字会短暂压在亮青上糊掉（1.48:1）
       var ink = pickInk(bgc);
-      inkTimer = setTimeout(function () {
-        document.documentElement.style.setProperty('--lab-ink', ink[0]);
-        document.documentElement.style.setProperty('--lab-ink-dim', ink[1]);
-        document.documentElement.style.setProperty('--lab-01', (bgc === '#FFFFFF' ? ink[0] : bgc));
-      }, Math.round(WIPE_MS * 0.6));
+      document.documentElement.style.setProperty('--lab-01', (bgc === '#FFFFFF' ? ink[0] : bgc));
     }
 
     startSpread();
