@@ -342,7 +342,23 @@
   // 文字色连续过渡的窗口（按色带亮度）：L 低于 INK_L0 用白字、高于 INK_L1 用深字，中间连续混
   var INK_L0 = parseFloat((location.search.match(/[?&]ink0=([0-9.]+)/) || [])[1] || '0.36');
   var INK_L1 = parseFloat((location.search.match(/[?&]ink1=([0-9.]+)/) || [])[1] || '0.46');
+  // 点条条时「色带 + 上面的字」全部一起化白（她 2026-09-18）：?wht=0.25 = 化白/化回各用多少秒
+  var WHT_S = parseFloat((location.search.match(/[?&]wht=([0-9.]+)/) || [])[1] || '0.25');
   var lastBandBg = '', lastInk = '', lastInkDim = '', last01 = '';
+  var whiteAmt = { v: 0 };     // 0 = 正常；1 = 全白
+  var whiteHold = false;       // 从点下去到面板关掉之间为 true
+  var lastT = 0;               // 最近一次的滚动值（补间每帧要靠它重画）
+  function setWhiteHold(on) {
+    if (whiteHold === on) return;
+    whiteHold = on;
+    if (window.gsap) {
+      gsap.killTweensOf(whiteAmt);   // 上一次还没跑完就先掐掉，免得两边抢
+      gsap.to(whiteAmt, { v: on ? 1 : 0, duration: WHT_S, ease: 'power2.out',
+                          onUpdate: function () { applyBand(lastT); } });
+    } else {
+      whiteAmt.v = on ? 1 : 0; applyBand(lastT);
+    }
+  }
 
   function hex2rgb(h) {
     h = String(h).replace('#', '');
@@ -399,17 +415,24 @@
   }
   function applyBand(T) {
     if (!bgTintEl) return;
+    lastT = T;
     var u = (T - vw / 2 - BLOCK_W / 2) / BLOCK_GAP + 1;   // 居中条件是 T = x0 + BLOCK_W/2 + vw/2，别漏了 vw/2
     var b = bandInfo(u);
     if (!b) return;
-    if (b.c !== lastBandBg) { lastBandBg = b.c; bgTintEl.style.backgroundColor = b.c; }
+    // 点条条期间：色带和上面的字一起往白里混（她 2026-09-18「全部变成白的」）
+    var w = clamp(whiteAmt.v, 0, 1);
+    var dimBase = (b.k >= 0.5) ? '#b0b0b0' : '#FFFFFF';
+    var c   = (w > 0) ? mixHex(b.c, '#FFFFFF', w) : b.c;
+    var ink = (w > 0) ? mixHex(b.ink, '#FFFFFF', w) : b.ink;
+    var dim = (w > 0) ? mixHex(dimBase, '#FFFFFF', w) : (b.k >= 0.5 ? '#b0b0b0' : 'rgba(255,255,255,.62)');
+    var c01 = (w > 0) ? mixHex(b.c01, '#FFFFFF', w) : b.c01;
+    if (c !== lastBandBg) { lastBandBg = c; bgTintEl.style.backgroundColor = c; }
     // 文字色跟同一条进度连续混（她：色带丝滑了，文字也得同样丝滑）
-    if (b.ink !== lastInk) { lastInk = b.ink; document.documentElement.style.setProperty('--lab-ink', b.ink); }
+    if (ink !== lastInk) { lastInk = ink; document.documentElement.style.setProperty('--lab-ink', ink); }
     // 10px 的小编号看不出硬翻，仍按中点切（免得白底上灰字发糊）
-    var dim = b.k >= 0.5 ? '#b0b0b0' : 'rgba(255,255,255,.62)';
     if (dim !== lastInkDim) { lastInkDim = dim; document.documentElement.style.setProperty('--lab-ink-dim', dim); }
     // 「01」填色同一条进度（不洗淡，免得变浅压在浅色带上看不见）
-    if (b.c01 !== last01) { last01 = b.c01; document.documentElement.style.setProperty('--lab-01', b.c01); }
+    if (c01 !== last01) { last01 = c01; document.documentElement.style.setProperty('--lab-01', c01); }
   }
 
   // 色带高度：?band=0.40 / 0.52 / 0.65（默认 0.52，跟她画的示意图一致）
@@ -531,6 +554,7 @@
         trackEl.appendChild(s);
         var gi = slats.length;                                  // 展平后的下标，点这根就展开它
         s.addEventListener('click', function () {
+          setWhiteHold(true);      // 点下去那一下就化白（她 2026-09-18），33 根一个逻辑
           // 这根配了 gif：先在条里原地播一遍，播完再跑展开动画
           if (b.gif && b.gif[ci]) playGifThen(slats[gi], gi);
           else openPanel(gi);
@@ -896,12 +920,14 @@
     var cx = r.left + r.width / 2, half = Math.max(cx, vw - cx);   // 和展开时同一套锚点
     if (hard) {
       panelEl.hidden = true; cpIdx = -1;
+      setWhiteHold(false);                    // 白化也一起褪回（她：关掉回本栏原色）
       cpPaint(null, true);                    // 硬关：颜色瞬间褪回，不留残色
       if (lscroll && lscroll.start) lscroll.start();
       gsap.set([trackEl, bgEl, fgEl, wheelHangEl], { opacity: 1 });
       cpWheelInk(null);
       return;
     }
+    setWhiteHold(false);            // 关的那一刻就化回本栏色：面板还整屏盖着，看不见这一下
     cpTl = gsap.timeline({
       onComplete: function () {
         panelEl.hidden = true; cpIdx = -1;
