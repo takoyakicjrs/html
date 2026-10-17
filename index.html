@@ -108,9 +108,12 @@
                 transform: translateY(-100%);
                 font-size: var(--ln, 11vh); line-height: 1; letter-spacing: .02em;
                 font-weight: 700; color: var(--lab-01, #111); }
-  /* 栏名：13px 小字 → 大字；宽度压到 2 个字宽 → 四个字自动排成 2×2（照她画的示意图） */
+  /* 栏名：13px 小字 → 大字；宽度压到 2 个字宽 → 四个字自动排成 2×2（照她画的示意图）
+     2026-10-18：宽死 2em + 字距 .02em 时两个全角字刚好放不下 → 所有标题都变成一列竖排，
+     长标题（7 字）冲到 538px 高、比色带还高；英文还会被 break-all 从单词中间劈开。
+     改成 pre-line + JS 按「中文每行 2 字 / 英文按单词」预先断行，宽度由内容决定。 */
   .label .name { margin-top: 8px; font-size: var(--lt, 9vh); line-height: 1.06; letter-spacing: .02em;
-                 width: 2em; white-space: normal; word-break: break-all;
+                 width: max-content; white-space: pre-line; word-break: normal; overflow-wrap: normal;
                  color: var(--lab-ink, #111); font-weight: 700; }
 
   /* ---------- 顶部悬挂的轮子（常驻区块指示器） ---------- */
@@ -471,6 +474,20 @@
       ? ['#FFFFFF', 'rgba(255,255,255,.62)'] : ['#111111', '#b0b0b0'];
   }
 
+  // 标题断行（她 2026-10-18：长标题 / 英文看着「各干各的」）
+  //   中文：每行最多 2 字 → 4 字正好 2×2，7 字是 2,2,2,1
+  //   英文：按单词断，绝不从单词中间劈开（原来 break-all 会把 Black 劈成 Bla/ck）
+  function titleLines(s) {
+    if (/[A-Za-z]/.test(s)) {
+      var ws = s.split(/\s+/).filter(Boolean), out = [];
+      for (var i = 0; i < ws.length; i += 1) out.push(ws[i]);
+      return out.join('\n');
+    }
+    var chars = Array.from ? Array.from(s) : s.split(''), lines = [];
+    for (var j = 0; j < chars.length; j += 2) lines.push(chars.slice(j, j + 2).join(''));
+    return lines.join('\n');
+  }
+
   var vw = 0, vh = 0, H = 0, W = 0, GAP = 0, PITCH = 0;
   var TOPA = 0, TOPB = 0, BLOCK_W = 0, BLOCK_GAP = 0, TAIL = 0, TRACK_W = 0, TRAVEL = 0, MAXD = 0;
   var slats = [], bgWords = [], labels = [];
@@ -531,9 +548,15 @@
       lb.style.left = (x0 + vw * LABEL_X) + 'px';
       // 「01」直接挂在 .label 下（不在 .box 里）：这样 top 的百分比才按整个视口算，
       // 才能停在色带上边缘；放在 .box 里的话百分比是按 .box 高度算的（实测会掉进色带中下部）
+      var tLines = titleLines(b.name);
       lb.innerHTML = '<div class="idx">' + b.idx + '</div>' +
         '<div class="box">' +
-        '<div class="name">' + b.name + '</div></div>';
+        '<div class="name">' + tLines + '</div></div>';
+      // 行数超过 4 就按比例缩字号，别让标题块高过色带（52vh）
+      var nLines = tLines.split('\n').length;
+      if (nLines > 4) {
+        lb.querySelector('.name').style.fontSize = 'calc(var(--lt, 9vh) * ' + (4 / nLines).toFixed(3) + ')';
+      }
       fgEl.appendChild(lb);
       labels.push({ el: lb, x: x0 + vw * LABEL_X });
 
