@@ -12,6 +12,9 @@
     /* 顶部悬挂带的厚度：轮子转 90° 后，这条带子就是它的裁剪框 */
     --band: 220px;
     --band-top: 0px;
+    /* 英文 / 数字用哪套字体：?ft=spicy / ?ft=grub 现场换（默认还是文渊） */
+    --num-font: "WenYuan Sans SC";
+    --en-font: "WenYuan Sans SC";
   }
   *, *::before, *::after { box-sizing: border-box; }
   html { scrollbar-width: none; }
@@ -30,6 +33,22 @@
     font-family: "WenYuan Sans SC";
     src: url("fonts/WenYuanSansSC-Bold.woff2") format("woff2");
     font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+  /* 英文 / 数字的两个候选字体（她 2026-10-18 给的）
+     Spicy Sauce：SIL OFL 1.1，可商用；Grubster：个人使用 only，商用要买授权 */
+  @font-face {
+    font-family: "Spicy Sauce";
+    src: url("fonts/SpicySauce-Regular.woff2") format("woff2");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "Grubster";
+    src: url("fonts/Grubster-Regular.woff2") format("woff2");
+    font-weight: 400 700;
     font-style: normal;
     font-display: swap;
   }
@@ -107,14 +126,23 @@
   .label .idx { position: absolute; left: 0; top: calc(50vh - (var(--band-h, 52%) / 2));
                 transform: translateY(-100%);
                 font-size: var(--ln, 11vh); line-height: 1; letter-spacing: .02em;
-                font-weight: 700; color: var(--lab-01, #111); }
+                font-weight: 700; color: var(--lab-01, #111);
+                font-family: var(--num-font, "WenYuan Sans SC"); }
   /* 栏名：13px 小字 → 大字；宽度压到 2 个字宽 → 四个字自动排成 2×2（照她画的示意图）
      2026-10-18：宽死 2em + 字距 .02em 时两个全角字刚好放不下 → 所有标题都变成一列竖排，
      长标题（7 字）冲到 538px 高、比色带还高；英文还会被 break-all 从单词中间劈开。
      改成 pre-line + JS 按「中文每行 2 字 / 英文按单词」预先断行，宽度由内容决定。 */
   .label .name { margin-top: 8px; font-size: var(--lt, 9vh); line-height: 1.06; letter-spacing: .02em;
-                 width: max-content; white-space: pre-line; word-break: normal; overflow-wrap: normal;
+                 /* 2026-10-18：中文标题改成真·竖排（从上往下读，列从右往左），
+                    一列放不下时按 max-height 自动折到左边那列 */
+                 writing-mode: vertical-rl; text-orientation: upright;
+                 max-height: 42vh; width: max-content;
+                 white-space: normal; word-break: normal; overflow-wrap: normal;
                  color: var(--lab-ink, #111); font-weight: 700; }
+  /* 英文标题：竖排会把拉丁字母转 90°，改回横排；字体走 --en-font */
+  .label .name.en { writing-mode: horizontal-tb; text-orientation: mixed;
+                    white-space: pre-line;   /* titleLines() 插的 \n 要保留，否则会连成一行 */
+                    font-family: var(--en-font, "WenYuan Sans SC"); }
 
   /* ---------- 顶部悬挂的轮子（常驻区块指示器） ---------- */
   .wheel-hang {
@@ -311,6 +339,13 @@
   if ((cpm = location.search.match(/[?&]fx=([\d.]+)/))) FX_REL = parseFloat(cpm[1]);
   var OW_SCALE = 1;      // 顶部轮子文字的整体缩放（?ow=0.7 这种；只乘字号与行距，不动位置）
   if ((cpm = location.search.match(/[?&]ow=([\d.]+)/))) OW_SCALE = parseFloat(cpm[1]);
+  // 英文 / 数字用哪套字体：?ft=spicy（Spicy Sauce） / ?ft=grub（Grubster），不带就是文渊
+  var _ft = (location.search.match(/[?&]ft=(spicy|grub)/) || [])[1];
+  if (_ft) {
+    var _fam = (_ft === 'spicy') ? '"Spicy Sauce"' : '"Grubster"';
+    document.documentElement.style.setProperty('--num-font', _fam);
+    document.documentElement.style.setProperty('--en-font', _fam);
+  }
 
   // ================= 栏目 =================
   // imgs 里一格 = 一根条：写图片路径就有图，写 '' 就是「先空着」（留 .slat 的灰底），等你给图再填。
@@ -475,17 +510,12 @@
   }
 
   // 标题断行（她 2026-10-18：长标题 / 英文看着「各干各的」）
-  //   中文：每行最多 2 字 → 4 字正好 2×2，7 字是 2,2,2,1
+  //   中文：不插换行 —— 交给竖排（writing-mode: vertical-rl）+ max-height 自动折列，
+  //        从此读的顺序是从上往下、列从右往左
   //   英文：按单词断，绝不从单词中间劈开（原来 break-all 会把 Black 劈成 Bla/ck）
   function titleLines(s) {
-    if (/[A-Za-z]/.test(s)) {
-      var ws = s.split(/\s+/).filter(Boolean), out = [];
-      for (var i = 0; i < ws.length; i += 1) out.push(ws[i]);
-      return out.join('\n');
-    }
-    var chars = Array.from ? Array.from(s) : s.split(''), lines = [];
-    for (var j = 0; j < chars.length; j += 2) lines.push(chars.slice(j, j + 2).join(''));
-    return lines.join('\n');
+    var ws = s.split(/\s+/).filter(Boolean);
+    return ws.join('\n');
   }
 
   var vw = 0, vh = 0, H = 0, W = 0, GAP = 0, PITCH = 0;
@@ -548,12 +578,13 @@
       lb.style.left = (x0 + vw * LABEL_X) + 'px';
       // 「01」直接挂在 .label 下（不在 .box 里）：这样 top 的百分比才按整个视口算，
       // 才能停在色带上边缘；放在 .box 里的话百分比是按 .box 高度算的（实测会掉进色带中下部）
-      var tLines = titleLines(b.name);
+      var isEn = /[A-Za-z]/.test(b.name);
+      var tLines = isEn ? titleLines(b.name) : b.name;
       lb.innerHTML = '<div class="idx">' + b.idx + '</div>' +
         '<div class="box">' +
-        '<div class="name">' + tLines + '</div></div>';
-      // 行数超过 4 就按比例缩字号，别让标题块高过色带（52vh）
-      var nLines = tLines.split('\n').length;
+        '<div class="name' + (isEn ? ' en' : '') + '">' + tLines + '</div></div>';
+      // 英文行数超过 4 就按比例缩字号，别让标题块高过色带（中文竖排自己折列，不用管）
+      var nLines = isEn ? tLines.split('\n').length : 1;
       if (nLines > 4) {
         lb.querySelector('.name').style.fontSize = 'calc(var(--lt, 9vh) * ' + (4 / nLines).toFixed(3) + ')';
       }
