@@ -125,7 +125,9 @@
   /* 颜色改成跟当前底色联动的变量：有底色的栏用白字，白底上自动换回深色 */
   /* 「01」：10px 小灰字 → 大号粗体，位置挪到色带上边缘的正上方（条条上方），颜色取本栏底色 */
   .label .idx { position: absolute; left: 0; top: calc(50vh - (var(--band-h, 52%) / 2));
-                transform: translateY(-100%);
+                /* -100% 让底边对齐色带上缘；再往下压 --idx-sink 让数字底部埋进色块里
+                   （她 2026-10-18 图里 0 的下沿是被色块"吃掉"的，不是悬在上方） */
+                transform: translateY(calc(-100% + var(--idx-sink, 3vh)));
                 font-size: var(--ln, 11vh); line-height: 1; letter-spacing: .02em;
                 font-weight: 700; color: var(--lab-01, #111);
                 font-family: var(--num-font, "WenYuan Sans SC"); }
