@@ -12,9 +12,10 @@
     /* 顶部悬挂带的厚度：轮子转 90° 后，这条带子就是它的裁剪框 */
     --band: 220px;
     --band-top: 0px;
-    /* 英文 / 数字用哪套字体：?ft=spicy / ?ft=grub 现场换（默认还是文渊） */
-    --num-font: "WenYuan Sans SC";
-    --en-font: "WenYuan Sans SC";
+    /* 英文 / 数字用哪套字体：默认 Spicy Sauce（她 2026-10-18 定的）；
+       ?ft=grub 可以现场换 Grubster 看，不带参数就是 Spicy */
+    --num-font: "Spicy Sauce";
+    --en-font: "Spicy Sauce";
   }
   *, *::before, *::after { box-sizing: border-box; }
   html { scrollbar-width: none; }
@@ -133,9 +134,8 @@
      长标题（7 字）冲到 538px 高、比色带还高；英文还会被 break-all 从单词中间劈开。
      改成 pre-line + JS 按「中文每行 2 字 / 英文按单词」预先断行，宽度由内容决定。 */
   .label .name { margin-top: 8px; font-size: var(--lt, 9vh); line-height: 1.06; letter-spacing: .02em;
-                 /* 2026-10-18：中文标题改成真·竖排（从上往下读，列从右往左），
-                    一列放不下时按 max-height 自动折到左边那列 */
-                 writing-mode: vertical-rl; text-orientation: upright;
+                 /* 2026-10-18：中文标题竖排，字从上往下；列从左往右读（vertical-lr） */
+                 writing-mode: vertical-lr; text-orientation: upright;
                  max-height: 42vh; width: max-content;
                  white-space: normal; word-break: normal; overflow-wrap: normal;
                  color: var(--lab-ink, #111); font-weight: 700; }
@@ -247,7 +247,7 @@
   var GAPB_R  = 0.825 * GAP_SCALE;   // 0.825 = 2026-09-18 上一版的基准（?gap=1 就是它）
                         // 更早的 2026-09-18：从 0.68 加大 —— 每栏右侧要放文案槽（约 300px），
                         // 不加大的话下一栏的内容会挤到这个槽边上。
-  var LABEL_X = 0.065;  // 块内：文字左端
+  var LABEL_X = 0.090;  // 屏幕左边距（不再是「栏块内」）：她 2026-10-18 画的示意图里数字贴左边约 9%
   var SLAT_X  = 0.30;   // 块内：条条组左端
   var K_IMG   = [0.032, 0.078, 0.052];  // 每根条里的图 —— 移速差就靠这个
   var K_LABEL = 0.050;  // 文字层
@@ -655,6 +655,7 @@
     var y = (typeof sy === 'number' && isFinite(sy)) ? sy : window.scrollY;
     var T = clamp(y - vh, 0, TRAVEL);
     var base = vw - T;
+    var LABEL_DX = -(vw - BLOCK_W) / 2;   // 见下面 label 那段：把栏块内的左边距换成屏幕左边距
     applyBand(T);   // 色带 = 滚动位置的连续函数（第 3 条）
 
     trackEl.style.transform = 'translate3d(' + base + 'px,0,0)';
@@ -682,7 +683,9 @@
     }
     for (i = 0; i < labels.length; i++) {
       var l = labels[i];
-      l.el.style.transform = 'translate3d(' + soft((l.x + base) - mid, K_LABEL, 34).toFixed(2) + 'px,0,0)';
+      // LABEL_DX：把「栏块内 9%」换算成「屏幕 9%」—— 栏居中时块左边缘在 (vw-BLOCK_W)/2，
+      // 不减掉这一截的话标题永远停在屏幕 25% 左右（她 2026-10-18 要贴左边）
+      l.el.style.transform = 'translate3d(' + (soft((l.x + base) - mid, K_LABEL, 34) + LABEL_DX).toFixed(2) + 'px,0,0)';
     }
     for (i = 0; i < bgWords.length; i++) {
       var b = bgWords[i];
