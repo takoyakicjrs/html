@@ -415,6 +415,54 @@
       return (v < 16 ? '0' : '') + v.toString(16);
     }).join('').toUpperCase();
   }
+
+  // ---- OKLCH 插值（她 2026-10-19 选的「第三条路」）----
+  // 洗白那条路每翻一栏都把色带冲到近白再落回（亮度 0.24 → 0.78 → 0.66，像闪一下）；
+  // RGB 直线中途会发灰变暗（0.24 → 0.17）。
+  // OKLCH 里亮度/彩度线性变、色相走短弧 → 全程单调、不发灰也不过曝。
+  function srgb2lin(x) { x /= 255; return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }
+  function lin2srgb(x) { return 255 * (x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055); }
+  function rgb2oklab(c) {
+    var r = srgb2lin(c[0]), g = srgb2lin(c[1]), b = srgb2lin(c[2]);
+    var l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    var m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    var s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+            1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+            0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+  }
+  function oklab2rgb(lab) {
+    var l_ = lab[0] + 0.3963377774 * lab[1] + 0.2158037573 * lab[2];
+    var m_ = lab[0] - 0.1055613458 * lab[1] - 0.0638541728 * lab[2];
+    var s_ = lab[0] - 0.0894841775 * lab[1] - 1.2914855480 * lab[2];
+    var l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+    return [lin2srgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+            lin2srgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+            lin2srgb(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)];
+  }
+  function lab2lch(lab) {
+    var C = Math.sqrt(lab[1] * lab[1] + lab[2] * lab[2]);
+    var H = Math.atan2(lab[2], lab[1]) * 180 / Math.PI;
+    return [lab[0], C, H < 0 ? H + 360 : H];
+  }
+  function lch2lab(lch) {
+    var r = lch[2] * Math.PI / 180;
+    return [lch[0], Math.cos(r) * lch[1], Math.sin(r) * lch[1]];
+  }
+  function mixOklch(a, b, f) {
+    if (f <= 0) return a;
+    if (f >= 1) return b;
+    var A = lab2lch(rgb2oklab(hex2rgb(a))), B = lab2lch(rgb2oklab(hex2rgb(b)));
+    // 灰 / 白没有色相：借对方的，彩度线性降到 0 自然变灰
+    if (A[1] < 0.02) A[2] = B[2];
+    if (B[1] < 0.02) B[2] = A[2];
+    var dh = B[2] - A[2];
+    if (dh > 180) dh -= 360;
+    if (dh < -180) dh += 360;
+    return rgbHex(oklab2rgb(lch2lab([A[0] + (B[0] - A[0]) * f,
+                                     A[1] + (B[1] - A[1]) * f,
+                                     A[2] + dh * f])));
+  }
   function mixHex(a, b, f) {
     var A = hex2rgb(a), B = hex2rgb(b);
     return rgbHex([0, 1, 2].map(function (i) { return A[i] + (B[i] - A[i]) * f; }));
@@ -449,9 +497,8 @@
       }
     }
     var f = (hi === lo || hi.u === lo.u) ? 0 : clamp((u - lo.u) / (hi.u - lo.u), 0, 1);
-    // 色带：中间站 = 两端平均色往白里洗 WASH → 中途是淡色雾，不是发灰的暗色
-    var mid = mixHex(mixHex(lo.c, hi.c, 0.5), '#FFFFFF', WASH);
-    var c = f <= 0.5 ? mixHex(lo.c, mid, f * 2) : mixHex(mid, hi.c, (f - 0.5) * 2);
+    // 色带：OKLCH 插值（她 2026-10-19 选的第三条路）——亮度单调、色相走短弧，不发灰也不过曝
+    var c = mixOklch(lo.c, hi.c, f);
     // 文字色：按色带亮度连续混（窗口窄 → 过渡短，且正好落在色带最淡那段）
     var k = clamp((lumOfHex(c) - INK_L0) / (INK_L1 - INK_L0), 0, 1);
     return { c: c, k: k, ink: mixHex('#FFFFFF', '#111111', k),
