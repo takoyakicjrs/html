@@ -39,6 +39,14 @@
   }
   /* 英文 / 数字的两个候选字体（她 2026-10-18 给的）
      Spicy Sauce：SIL OFL 1.1，可商用；Grubster：个人使用 only，商用要买授权 */
+  /* 标题字体（她 2026-11-14 给的「平方张亚玲黑方体」，猫啃网，免费商用） */
+  @font-face {
+    font-family: "Square ZYL";
+    src: url("fonts/SquareZYL.woff2") format("woff2");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+  }
   @font-face {
     font-family: "Spicy Sauce";
     src: url("fonts/SpicySauce-Regular.woff2") format("woff2");
@@ -144,6 +152,7 @@
                  writing-mode: vertical-lr; text-orientation: upright;
                  max-height: 42vh; width: max-content;
                  white-space: normal; word-break: normal; overflow-wrap: normal;
+                 font-family: var(--title-font, "Square ZYL"), "WenYuan Sans SC", "MS PGothic", sans-serif;
                  color: var(--lab-ink, #111); font-weight: 700; }
   /* 英文标题：竖排会把拉丁字母转 90°，改回横排；字体走 --en-font */
   .label .name.en { writing-mode: horizontal-tb; text-orientation: mixed;
