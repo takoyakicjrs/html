@@ -131,6 +131,7 @@
                 font-size: var(--ln, 11vh); line-height: 1; letter-spacing: .02em;
                 font-weight: 700; color: var(--lab-01, #111);
                 font-family: var(--num-font, "WenYuan Sans SC"); }
+  .label .idx .dg { display: inline-block; will-change: transform; }
   /* 栏名：13px 小字 → 大字；宽度压到 2 个字宽 → 四个字自动排成 2×2（照她画的示意图）
      2026-10-18：宽死 2em + 字距 .02em 时两个全角字刚好放不下 → 所有标题都变成一列竖排，
      长标题（7 字）冲到 538px 高、比色带还高；英文还会被 break-all 从单词中间劈开。
@@ -466,6 +467,11 @@
                                      A[1] + (B[1] - A[1]) * f,
                                      A[2] + dh * f])));
   }
+  // 弹性缓出：冲过头再弹回来（她 2026-11-13 给的图：数字「弹」出来，彼此有高度差）
+  function easeOutBack(t) {
+    var c1 = 1.70158, c3 = c1 + 1;
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+  }
   function mixHex(a, b, f) {
     var A = hex2rgb(a), B = hex2rgb(b);
     return rgbHex([0, 1, 2].map(function (i) { return A[i] + (B[i] - A[i]) * f; }));
@@ -645,7 +651,12 @@
       // 才能停在色带上边缘；放在 .box 里的话百分比是按 .box 高度算的（实测会掉进色带中下部）
       var isEn = /[A-Za-z]/.test(b.name);
       var tLines = isEn ? titleLines(b.name) : b.name;
-      lb.innerHTML = '<div class="idx">' + b.idx + '</div>' +
+      // 数字拆成单字：她 2026-11-13 要「0」和「1」各自弹性弹出、彼此有高度差
+      var idxHtml = '';
+      for (var di = 0; di < b.idx.length; di++) {
+        idxHtml += '<span class="dg">' + b.idx.charAt(di) + '</span>';
+      }
+      lb.innerHTML = '<div class="idx">' + idxHtml + '</div>' +
         '<div class="box">' +
         '<div class="name' + (isEn ? ' en' : '') + '">' + tLines + '</div></div>';
       // 英文行数超过 4 就按比例缩字号，别让标题块高过色带（中文竖排自己折列，不用管）
@@ -659,7 +670,7 @@
       var tInk = pickInk(b.bg || '#FFFFFF')[0];
       var nameEl = lb.querySelector('.name');
       nameEl.style.color = tInk;
-      labels.push({ el: lb, x: x0 + vw * LABEL_X, ink: tInk, nameEl: nameEl });
+      labels.push({ el: lb, x: x0 + vw * LABEL_X, ink: tInk, nameEl: nameEl, dgs: lb.querySelectorAll('.idx .dg') });
 
       // 右边的条条
       b.imgs.forEach(function (src, ci) {
@@ -768,14 +779,30 @@
       // 不减掉这一截的话标题永远停在屏幕 25% 左右（她 2026-10-18 要贴左边）
       var lx = soft((l.x + base) - mid, K_LABEL, 34) + LABEL_DX;
       l.el.style.transform = 'translate3d(' + lx.toFixed(2) + 'px,' + ((1 - dLabel) * 28).toFixed(2) + 'px,0)';
+      // 数字逐字弹性弹出：0 先走、1 晚一档，中途一高一低（她图里那三层就是这个高度差）
+      for (var dk = 0; dk < l.dgs.length; dk++) {
+        var dtt = clamp((ep - 0.06 - dk * 0.13) / 0.40, 0, 1);
+        var de = easeOutBack(dtt);
+        l.dgs[dk].style.transform = 'translate3d(0,' + ((1 - de) * 52).toFixed(2) + 'px,0)';
+      }
+      // 滚动虚化（她 2026-11-13 选的第 4 条）：滚到栏心字最实，往两边逐渐变虚（透明 + 轻模糊，模糊只当文字动效用）
+      var dc = (l.x - LABEL_X * vw + BLOCK_W / 2 + base) - mid;
+      var dv = clamp((Math.abs(dc) - vw * 0.12) / (vw * 0.30), 0, 1);
+      l.dv = dv;
+      l.nameEl.style.opacity = (1 - 0.45 * dv).toFixed(3);
+      if (dv > 0.03) l.nameEl.style.filter = 'blur(' + (dv * 1.8).toFixed(2) + 'px)';
+      else if (l.nameEl.style.filter) l.nameEl.style.filter = '';
     }
     for (i = 0; i < bgWords.length; i++) {
       var b = bgWords[i];
       var db = (b.x + base) - mid;
       b.el.style.transform = 'translate(0,-50%) translate3d(' +
         soft(db, K_BG, 40).toFixed(2) + 'px,' + ((1 - dWord) * 16).toFixed(2) + 'px,0)';
-      // 离画面中心太远就淡掉，免得视口边缘留半截淡字
+      // 离画面中心太远就淡掉，免得视口边缘留半截淡字；虚化程度跟同一栏的标题共用
+      var dbv = labels[i] ? labels[i].dv : 0;
       b.el.style.opacity = (clamp(1 - (Math.abs(db) - vw * 0.25) / (vw * 0.20), 0, 1) * dWord).toFixed(3);
+      if (dbv > 0.03) b.el.style.filter = 'blur(' + (dbv * 1.6).toFixed(2) + 'px)';
+      else if (b.el.style.filter) b.el.style.filter = '';
     }
 
     // 顶部轮子 = 区块指示器：谁离视口中心最近，就选中谁
