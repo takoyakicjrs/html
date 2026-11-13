@@ -787,7 +787,7 @@
       l.nameEl.style.transform = 'translate3d(0,' + ((1 - dLabel) * 28).toFixed(2) + 'px,0)';
       // 滚动虚化（她 2026-11-13 选的第 4 条）：滚到栏心字最实，往两边逐渐变虚（透明 + 轻模糊，模糊只当文字动效用）
       var dc = (l.x - LABEL_X * vw + BLOCK_W / 2 + base) - mid;
-      var dv = clamp((Math.abs(dc) - vw * 0.25) / (vw * 0.30), 0, 1);
+      var dv = clamp((Math.abs(dc) - vw * 0.50) / (vw * 0.26), 0, 1);
       l.dv = dv;
       l.nameEl.style.opacity = (1 - 0.90 * dv).toFixed(3);
       // 她的标准（2026-11-13 给的两张图）：刚进画面时「非常非常模糊 + 10% 透明」，
@@ -796,13 +796,13 @@
       else if (l.nameEl.style.filter) l.nameEl.style.filter = '';
 
       // 数字逐字弹出 —— 每一栏滚到时都播一次（她 2026-11-13「后面的数字也套用这个显示动画」）。
-      // 进度用数字自己的屏幕位置算：从右边缘一路滑到 9% 位置正好弹完，所以跨 1283px、够慢；
-      // 前 35% 的行程按她的要求先不动（约 0.5 秒的观感），走完才开始起跳。
+      // 进度用数字自己的屏幕位置算：dRaw 0 = 刚进右边缘、1 = 停在自己的位置。
+      // 2026-11-13 晚：她要求「结束提前」——栏走到一半（dRaw 0.5）就要弹完，所以收在 0.5 而不是 1。
       var sx = (l.x + base) + lx;
       var dRaw = clamp((vw - sx) / Math.max(1, vw - LABEL_X * vw), 0, 1);
-      var dEnt = clamp((dRaw - 0.35) / 0.65, 0, 1);
+      var dEnt = clamp((dRaw - 0.18) / 0.32, 0, 1);
       for (var dk = 0; dk < l.dgs.length; dk++) {
-        var dtt = clamp((dEnt - dk * 0.16) / 0.52, 0, 1);
+        var dtt = clamp((dEnt - dk * 0.14) / 0.80, 0, 1);
         var de = easeOutCubic(dtt);
         l.dgs[dk].style.transform = 'translate3d(0,' + ((1 - de) * 72).toFixed(2) + 'px,0)';
       }
