@@ -795,8 +795,10 @@
       var dc = (l.x - LABEL_X * vw + BLOCK_W / 2 + base) - mid;
       var dv = clamp((Math.abs(dc) - vw * 0.12) / (vw * 0.30), 0, 1);
       l.dv = dv;
-      l.nameEl.style.opacity = (1 - 0.45 * dv).toFixed(3);
-      if (dv > 0.03) l.nameEl.style.filter = 'blur(' + (dv * 1.8).toFixed(2) + 'px)';
+      l.nameEl.style.opacity = (1 - 0.90 * dv).toFixed(3);
+      // 她的标准（2026-11-13 给的两张图）：刚进画面时「非常非常模糊 + 10% 透明」，
+      // 到位才 0 模糊、100%。9vh 大字用 20px 就糊到只剩轮廓了。
+      if (dv > 0.02) l.nameEl.style.filter = 'blur(' + (dv * 20).toFixed(1) + 'px)';
       else if (l.nameEl.style.filter) l.nameEl.style.filter = '';
     }
     for (i = 0; i < bgWords.length; i++) {
@@ -806,8 +808,8 @@
         soft(db, K_BG, 40).toFixed(2) + 'px,' + ((1 - dWord) * 16).toFixed(2) + 'px,0)';
       // 离画面中心太远就淡掉，免得视口边缘留半截淡字；虚化程度跟同一栏的标题共用
       var dbv = labels[i] ? labels[i].dv : 0;
-      b.el.style.opacity = (clamp(1 - (Math.abs(db) - vw * 0.25) / (vw * 0.20), 0, 1) * dWord).toFixed(3);
-      if (dbv > 0.03) b.el.style.filter = 'blur(' + (dbv * 1.6).toFixed(2) + 'px)';
+      b.el.style.opacity = (clamp(1 - (Math.abs(db) - vw * 0.25) / (vw * 0.20), 0, 1) * dWord * (1 - 0.90 * dbv)).toFixed(3);
+      if (dbv > 0.02) b.el.style.filter = 'blur(' + (dbv * 7).toFixed(1) + 'px)';
       else if (b.el.style.filter) b.el.style.filter = '';
     }
 
