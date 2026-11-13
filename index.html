@@ -130,7 +130,10 @@
                 transform: translateY(calc(-100% + var(--idx-sink, 3vh)));
                 font-size: var(--ln, 11vh); line-height: 1; letter-spacing: .02em;
                 font-weight: 700; color: var(--lab-01, #111);
-                font-family: var(--num-font, "WenYuan Sans SC"); }
+                font-family: var(--num-font, "WenYuan Sans SC");
+                /* 数字拆成单字后必须禁止换行：.label 宽度是 0，.idx 的可用宽度也是 0，
+                   不加这句每个字会被挤成一行、整串变竖排（实测踩过） */
+                white-space: nowrap; }
   .label .idx .dg { display: inline-block; will-change: transform; }
   /* 栏名：13px 小字 → 大字；宽度压到 2 个字宽 → 四个字自动排成 2×2（照她画的示意图）
      2026-10-18：宽死 2em + 字距 .02em 时两个全角字刚好放不下 → 所有标题都变成一列竖排，
