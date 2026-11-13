@@ -781,7 +781,11 @@
       // LABEL_DX：把「栏块内 9%」换算成「屏幕 9%」—— 栏居中时块左边缘在 (vw-BLOCK_W)/2，
       // 不减掉这一截的话标题永远停在屏幕 25% 左右（她 2026-10-18 要贴左边）
       var lx = soft((l.x + base) - mid, K_LABEL, 34) + LABEL_DX;
-      l.el.style.transform = 'translate3d(' + lx.toFixed(2) + 'px,' + ((1 - dLabel) * 28).toFixed(2) + 'px,0)';
+      // 容器只负责横向位移：数字的弹跳必须单独走自己的 transform，
+      // 挂在 .label 上的话数字会被一起推，两个缓动叠在一起（她 2026-11-13 说的「没分开」）
+      l.el.style.transform = 'translate3d(' + lx.toFixed(2) + 'px,0,0)';
+      // 标题自己的入场位移挂在 .name 上
+      l.nameEl.style.transform = 'translate3d(0,' + ((1 - dLabel) * 28).toFixed(2) + 'px,0)';
       // 数字逐字弹性弹出：0 先走、1 晚一档，中途一高一低（她图里那三层就是这个高度差）
       for (var dk = 0; dk < l.dgs.length; dk++) {
         var dtt = clamp((ep - 0.06 - dk * 0.13) / 0.40, 0, 1);
