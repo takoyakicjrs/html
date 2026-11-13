@@ -75,7 +75,7 @@
   .home {
     position: fixed; inset: 0; z-index: 3;
     background: #fff;
-    will-change: opacity, transform;
+    will-change: transform;
   }
   .home .hint {
     position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%);
@@ -483,7 +483,9 @@
   }
   function buildBandStops() {
     var i;
-    BAND_STOPS = [{ u: 1 - (vw / 2 + BLOCK_W / 2) / BLOCK_GAP, c: '#FFFFFF' }];   // Home 锚点（T=0 的位置）
+    // Home 锚点用第一栏的颜色（不是白）：白布抽走时底下要立刻有颜色可看，
+    // 否则「抽掉白布 → 又露出白的」等于没效果。首页那块白布照样盖住，看不见。
+    BAND_STOPS = [{ u: 1 - (vw / 2 + BLOCK_W / 2) / BLOCK_GAP, c: (BLOCKS[0] && BLOCKS[0].bg) || '#FFFFFF' }];
     BLOCKS.forEach(function (b, bi) { BAND_STOPS.push({ u: bi + 1, c: b.bg || '#FFFFFF' }); });
     BAND_STOPS.push({ u: BLOCKS.length + 1, c: '#FFFFFF' });             // 末尾兜底
     for (i = 0; i < BAND_STOPS.length; i++) BAND_STOPS[i].c01 = c01Of(BAND_STOPS[i].c);
@@ -534,12 +536,16 @@
     if (dim !== lastInkDim) { lastInkDim = dim; document.documentElement.style.setProperty('--lab-ink-dim', dim); }
     // 「01」填色同一条进度（不洗淡，免得变浅压在浅色带上看不见）
     if (c01 !== last01) { last01 = c01; document.documentElement.style.setProperty('--lab-01', c01); }
-    // 文案块：颜色定死在本栏墨色，只有「点条条全部化白」时才跟着洗白（她那次的规矩要保住）
+    // 文案块 + 栏名：颜色定死在本栏墨色，只有「点条条全部化白」时才跟着洗白（她那次的规矩要保住）
     if (w !== lastWordW) {
       lastWordW = w;
       for (var wi = 0; wi < bgWords.length; wi++) {
         var bwl = bgWords[wi];
         bwl.el.style.color = (w > 0) ? mixHex(bwl.ink, '#FFFFFF', w) : bwl.ink;
+      }
+      for (var li = 0; li < labels.length; li++) {
+        var lbl = labels[li];
+        lbl.nameEl.style.color = (w > 0) ? mixHex(lbl.ink, '#FFFFFF', w) : lbl.ink;
       }
     }
   }
@@ -648,7 +654,12 @@
         lb.querySelector('.name').style.fontSize = 'calc(var(--lt, 9vh) * ' + (4 / nLines).toFixed(3) + ')';
       }
       fgEl.appendChild(lb);
-      labels.push({ el: lb, x: x0 + vw * LABEL_X });
+      // 标题色按本栏底色定死（她 2026-11-13：红紫法典要一开始就是白的，不要从黑渐变到白）
+      // 以前它跟 --lab-ink 走同一进度，滚在栏间时整排字会停在灰色上
+      var tInk = pickInk(b.bg || '#FFFFFF')[0];
+      var nameEl = lb.querySelector('.name');
+      nameEl.style.color = tInk;
+      labels.push({ el: lb, x: x0 + vw * LABEL_X, ink: tInk, nameEl: nameEl });
 
       // 右边的条条
       b.imgs.forEach(function (src, ci) {
@@ -754,11 +765,13 @@
       b.el.style.opacity = clamp(1 - (Math.abs(db) - vw * 0.25) / (vw * 0.20), 0, 1).toFixed(3);
     }
 
-    // 主页淡出
-    var p = clamp((y - vh * 0.55) / (vh * 0.45), 0, 1);
-    homeEl.style.opacity = String(1 - p);
-    homeEl.style.transform = 'translate3d(0,' + (-y * 0.10).toFixed(2) + 'px,0)';
-    homeEl.style.pointerEvents = p > 0.4 ? 'none' : 'auto';
+    // 入场（她 2026-11-13 选的 A）：白布整块往上一推就走 —— 硬边、不淡出。
+    // 进度跟着 T（横向行程）而不是 y：这样白布抽走的过程正好跟第一栏从右边滑进来同步，
+    // 露出来的地方有东西可看（只跟 y 走的话，白布下面是空舞台，抽完还是白的一片）。
+    var p = clamp(T / (vh * 0.90), 0, 1);
+    homeEl.style.transform = 'translate3d(0,' + (-p * 100).toFixed(3) + 'vh,0)';
+    homeEl.style.opacity = '1';
+    homeEl.style.pointerEvents = p > 0.02 ? 'none' : 'auto';
 
     // 顶部轮子 = 区块指示器：谁离视口中心最近，就选中谁
     var idx = 0;
