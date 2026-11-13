@@ -785,12 +785,6 @@
       l.el.style.transform = 'translate3d(' + lx.toFixed(2) + 'px,0,0)';
       // 标题自己的入场位移挂在 .name 上
       l.nameEl.style.transform = 'translate3d(0,' + ((1 - dLabel) * 28).toFixed(2) + 'px,0)';
-      // 数字逐字弹性弹出：0 先走、1 晚一档，中途一高一低（她图里那三层就是这个高度差）
-      for (var dk = 0; dk < l.dgs.length; dk++) {
-        var dtt = clamp((ep - 0.06 - dk * 0.13) / 0.40, 0, 1);
-        var de = easeOutCubic(dtt);
-        l.dgs[dk].style.transform = 'translate3d(0,' + ((1 - de) * 52).toFixed(2) + 'px,0)';
-      }
       // 滚动虚化（她 2026-11-13 选的第 4 条）：滚到栏心字最实，往两边逐渐变虚（透明 + 轻模糊，模糊只当文字动效用）
       var dc = (l.x - LABEL_X * vw + BLOCK_W / 2 + base) - mid;
       var dv = clamp((Math.abs(dc) - vw * 0.12) / (vw * 0.30), 0, 1);
@@ -800,6 +794,18 @@
       // 到位才 0 模糊、100%。9vh 大字用 20px 就糊到只剩轮廓了。
       if (dv > 0.02) l.nameEl.style.filter = 'blur(' + (dv * 20).toFixed(1) + 'px)';
       else if (l.nameEl.style.filter) l.nameEl.style.filter = '';
+
+      // 数字逐字弹出 —— 每一栏滚到时都播一次（她 2026-11-13「后面的数字也套用这个显示动画」）。
+      // 进度用数字自己的屏幕位置算：从右边缘一路滑到 9% 位置正好弹完，所以跨 1283px、够慢；
+      // 前 35% 的行程按她的要求先不动（约 0.5 秒的观感），走完才开始起跳。
+      var sx = (l.x + base) + lx;
+      var dRaw = clamp((vw - sx) / Math.max(1, vw - LABEL_X * vw), 0, 1);
+      var dEnt = clamp((dRaw - 0.35) / 0.65, 0, 1);
+      for (var dk = 0; dk < l.dgs.length; dk++) {
+        var dtt = clamp((dEnt - dk * 0.16) / 0.52, 0, 1);
+        var de = easeOutCubic(dtt);
+        l.dgs[dk].style.transform = 'translate3d(0,' + ((1 - de) * 52).toFixed(2) + 'px,0)';
+      }
     }
     for (i = 0; i < bgWords.length; i++) {
       var b = bgWords[i];
