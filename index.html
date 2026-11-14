@@ -103,6 +103,13 @@
      透明的盒子照样参与命中判定，不加这行点条条完全没反应 */
   .layer { position: absolute; top: 0; left: 0; height: 100%; will-change: transform; pointer-events: none; }
 
+  /* 条条上的 PC 编号（她 2026-11-14）：上排贴左上、下排贴右下，10px 小字 */
+  .pc { position: absolute; font-size: 11px; line-height: 1; letter-spacing: 1.5px;
+        color: #111; opacity: .7; user-select: none; pointer-events: none;
+        white-space: nowrap; }
+  .pc.up { text-align: left; }
+  .pc.dn { text-align: right; }
+
   .slat { position: absolute; overflow: hidden; background: #efefef; will-change: transform; }
   .slat > i {
     position: absolute; top: 0; left: -75%; width: 250%; height: 100%;
@@ -699,6 +706,16 @@
         s.style.top = (ci % 2 ? TOPB : TOPA) + 'px';
         s.style.width = W + 'px';
         s.style.height = H + 'px';
+        // PC 编号标签（她 2026-11-14）：上排条条的标签贴左上、顶在条条上方；
+        // 下排条条的标签贴右下、挂在条条下方 —— 两组各朝一边，不会撞在一起。
+        // 必须放在 .slat 外面（.slat 是 overflow:hidden，放里面会被图片裁掉）
+        var pcEl = document.createElement('div');
+        pcEl.className = 'pc ' + (ci % 2 ? 'dn' : 'up');
+        pcEl.textContent = 'pc' + (ci + 1);
+        pcEl.style.left = x + 'px';
+        pcEl.style.width = W + 'px';
+        pcEl.style.top = (ci % 2 ? (TOPB + H + 8) : (TOPA - 18)) + 'px';
+        trackEl.appendChild(pcEl);
         var fx = null;                             // 特效层（可选）：同一个条条里的第二层
         var im = document.createElement('i');
         if (src) {                                 // '' = 这根条先空着（留 .slat 的灰底）
