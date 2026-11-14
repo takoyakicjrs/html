@@ -103,9 +103,10 @@
      透明的盒子照样参与命中判定，不加这行点条条完全没反应 */
   .layer { position: absolute; top: 0; left: 0; height: 100%; will-change: transform; pointer-events: none; }
 
-  /* 条条上的 PC 编号（她 2026-11-14）：上排贴左上、下排贴右下，10px 小字 */
+  /* 条条上的 PC 编号（她 2026-11-14）：上排贴左上、下排贴右下，11px 小字
+     颜色跟色带同步（走 --lab-01，跟「01」数字同一个变量） */
   .pc { position: absolute; font-size: 11px; line-height: 1; letter-spacing: 1.5px;
-        color: #111; opacity: .7; user-select: none; pointer-events: none;
+        color: var(--lab-01, #111); user-select: none; pointer-events: none;
         white-space: nowrap; }
   .pc.up { text-align: left; }
   .pc.dn { text-align: right; }
@@ -714,7 +715,7 @@
         pcEl.textContent = 'pc' + (ci + 1);
         pcEl.style.left = x + 'px';
         pcEl.style.width = W + 'px';
-        pcEl.style.top = (ci % 2 ? (TOPB + H + 8) : (TOPA - 18)) + 'px';
+        pcEl.style.top = (ci % 2 ? (TOPB + H - 2) : (TOPA - 9)) + 'px';
         trackEl.appendChild(pcEl);
         var fx = null;                             // 特效层（可选）：同一个条条里的第二层
         var im = document.createElement('i');
