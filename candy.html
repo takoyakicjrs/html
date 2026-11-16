@@ -29,7 +29,7 @@ var bodies = chars.map(function (c, i) {
   var POS = [[232, 291], [422, 291], [232, 481], [422, 481]];
   var x = POS[i][0], y = POS[i][1];
   var b = Bodies.rectangle(x, y, 150, 150, {
-    friction: 0.4, restitution: 0.15, frictionAir: 0.055, density: 0.0015,
+    friction: 0.4, restitution: 0.15, frictionAir: 0.042, density: 0.0045,
     collisionFilter: { group: 0 }
   });
   b.homeX = x; b.homeY = y;
@@ -44,22 +44,18 @@ var bodies = chars.map(function (c, i) {
   return b;
 });
 
-// 鼠标划过 → 轻微晃动（不拖拽），幅度很小
-var lastX = null, lastY = null;
-document.addEventListener('pointermove', function (e) {
-  if (lastX === null) { lastX = e.clientX; lastY = e.clientY; return; }
-  var vx = e.clientX - lastX, vy = e.clientY - lastY;
-  lastX = e.clientX; lastY = e.clientY;
-  var sp = Math.min(Math.hypot(vx, vy), 40);
-  if (sp < 1) return;
+// 滚轮 → 字被震一下（她 2026-11-17 纠正：不是鼠标划过，是滚轮滚动才动）
+// 「沉重」= 冲量小、恢复慢、阻尼大
+window.addEventListener('wheel', function (e) {
+  var d = Math.max(-70, Math.min(70, e.deltaY));
+  var k = 0.000055;
   bodies.forEach(function (b) {
-    var d = Math.hypot(b.position.x - e.clientX, b.position.y - e.clientY);
-    if (d < 300) {
-      var f = 0.00008 * (1 - d / 380) * b.mass;
-      Body.applyForce(b, b.position, { x: vx * f, y: vy * f });
-    }
+    Body.applyForce(b, b.position, {
+      x: d * k * 0.35 * b.mass,
+      y: Math.abs(d) * k * b.mass
+    });
   });
-});
+}, { passive: true });
 
 function reset() {
   bodies.forEach(function (b) {
