@@ -49,7 +49,7 @@ var bodies = chars.map(function (c, i) {
 var offT = 0, off = 0, offV = 0;
 window.addEventListener('wheel', function (e) {
   var d = Math.max(-70, Math.min(70, e.deltaY));
-  offT -= d * 0.13;          // 往滚动的反方向拖（刹车时人往前倾）
+  offT -= d * 0.058;          // 往滚动的反方向拖（刹车时人往前倾）
 }, { passive: true });
 
 function reset() {
@@ -68,8 +68,8 @@ var GRAV = 0;
 var MIN_D = 130;       // 两字中心的「挤」间距：小于它就互相推（允许 30% 左右重叠）
 var PUSH = 0.00016;
 function frame() {
-  offT *= 0.90;                        // 目标自己衰减回 0
-  var acc = (offT - off) * 0.11 - offV * 0.034;
+  offT *= 0.965;                        // 目标自己衰减回 0
+  var acc = (offT - off) * 0.013 - offV * 0.092;
   offV += acc;
   off += offV;
   // 软碰撞：字可以压着字，但压太深会被推开 —— 真刚体碰撞会让它们彻底分开，就没有「挤」了
