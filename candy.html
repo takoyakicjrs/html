@@ -5,8 +5,8 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; background: #fff; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
   #band { position: absolute; left: 0; top: 193px; width: 100%; height: 419px; background: #FF009D; }
-  .ch { position: absolute; left: 0; top: 0; width: 200px; height: 200px; color: #fff;
-        font-size: 200px; line-height: 200px; text-align: center; font-weight: 700;
+  .ch { position: absolute; left: 0; top: 0; width: 190px; height: 190px; color: #fff;
+        font-size: 190px; line-height: 190px; text-align: center; font-weight: 700;
         will-change: transform; user-select: none; }
   #hint { position: absolute; left: 20px; bottom: 16px; font-size: 11px; color: #999; letter-spacing: 1px; }
 </style>
@@ -18,20 +18,22 @@ var Engine = Matter.Engine, World = Matter.World, Bodies = Matter.Bodies, Body =
 
 var engine = Engine.create({ gravity: { x: 0, y: 0 } });
 var world = engine.world;
-var BT = 193, BB = 612, BW = window.innerWidth, SIZE = 200;
+var BT = 193, BB = 612, BW = window.innerWidth, SIZE = 190;
 
 
 var chars = ['红', '紫', '法', '典'];
 var home = [];
 var bodies = chars.map(function (c, i) {
-  // 按她那张图：沿 31° 斜线排、四个字各自转不同角度、挤在一起
-  var x = 170 + i * 100, y = 248 + i * 56;
-  var b = Bodies.rectangle(x, y, SIZE, SIZE, {
+  // 按参考图重排（2026-11-17，DeepSeek 视觉读出来的）：2×2 错位，各自角度不同、不重叠
+  // 左上红 / 右上紫 / 左下法 / 右下典
+  var POS = [[232, 307], [422, 307], [232, 497], [422, 497]];
+  var x = POS[i][0], y = POS[i][1];
+  var b = Bodies.rectangle(x, y, 130, 130, {
     friction: 0.25, restitution: 0.45, frictionAir: 0.02, density: 0.0015,
-    collisionFilter: { group: -1 }
+    collisionFilter: { group: 0 }
   });
   b.homeX = x; b.homeY = y;
-  b.homeAngle = [-12, 20, -26, 8][i] * Math.PI / 180;   // 每字不同角度（她 2026-11-17 要求）
+  b.homeAngle = [40, 30, 15, 20][i] * Math.PI / 180;   // 参考图读出来的四个角度
   Body.setAngle(b, b.homeAngle);
   World.add(world, b);
   var el = document.createElement('div');
