@@ -28,7 +28,7 @@ var bodies = chars.map(function (c, i) {
   // 左上红 / 右上紫 / 左下法 / 右下典
   var POS = [[232, 291], [422, 291], [232, 481], [422, 481]];
   var x = POS[i][0], y = POS[i][1];
-  var b = Bodies.rectangle(x, y, 150, 150, {
+  var b = Bodies.rectangle(x, y, 176, 176, {
     friction: 0.4, restitution: 0.15, frictionAir: 0.042, density: 0.0045,
     collisionFilter: { group: 0 }
   });
@@ -47,13 +47,14 @@ var bodies = chars.map(function (c, i) {
 // 滚轮 → 字被震一下（她 2026-11-17 纠正：不是鼠标划过，是滚轮滚动才动）
 // 「沉重」= 冲量小、恢复慢、阻尼大
 window.addEventListener('wheel', function (e) {
+  // 她 2026-11-17：只要 5px 左右的横向偏移，用来跟页面其他左右动效对上
   var d = Math.max(-70, Math.min(70, e.deltaY));
-  var k = 0.000055;
-  bodies.forEach(function (b) {
-    Body.applyForce(b, b.position, {
-      x: d * k * 0.35 * b.mass,
-      y: Math.abs(d) * k * b.mass
-    });
+  var k = 0.0000008;
+  bodies.forEach(function (b, i) {
+    Body.applyForce(b, b.position, { x: d * k * b.mass, y: 0 });
+    // 碰撞倾斜：字本来就不重叠、撞不起来，所以按滚动方向和幅度给一点角速度，
+    // 晃的时候各自歪几度再被角度弹簧拉回去（她 2026-11-17）
+    Body.setAngularVelocity(b, b.angularVelocity + d * 0.00026 * (i % 2 ? -1 : 1));
   });
 }, { passive: true });
 
