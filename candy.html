@@ -4,7 +4,7 @@
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; background: #fff; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
-  #band { position: absolute; left: 0; top: 193px; width: 100%; height: 419px; background: #FF009D; }
+  #band { position: absolute; left: 0; top: 193px; width: 100%; height: 419px; background: #FF009D; overflow: hidden; }
   .ch { position: absolute; left: 0; top: 0; width: 190px; height: 190px; color: #fff;
         font-size: 190px; line-height: 190px; text-align: center; font-weight: 700;
         will-change: transform; user-select: none; }
@@ -16,7 +16,7 @@
 <script>
 var Engine = Matter.Engine, World = Matter.World, Bodies = Matter.Bodies, Body = Matter.Body;
 
-var engine = Engine.create({ gravity: { x: 0, y: 0 } });
+var engine = Engine.create({ gravity: { x: 0, y: 0.3 } });
 var world = engine.world;
 var BT = 193, BB = 612, BW = window.innerWidth, SIZE = 190;
 
@@ -26,10 +26,10 @@ var home = [];
 var bodies = chars.map(function (c, i) {
   // 按参考图重排（2026-11-17，DeepSeek 视觉读出来的）：2×2 错位，各自角度不同、不重叠
   // 左上红 / 右上紫 / 左下法 / 右下典
-  var POS = [[232, 307], [422, 307], [232, 497], [422, 497]];
+  var POS = [[232, 291], [422, 291], [232, 481], [422, 481]];
   var x = POS[i][0], y = POS[i][1];
-  var b = Bodies.rectangle(x, y, 130, 130, {
-    friction: 0.25, restitution: 0.45, frictionAir: 0.02, density: 0.0015,
+  var b = Bodies.rectangle(x, y, 150, 150, {
+    friction: 0.4, restitution: 0.15, frictionAir: 0.055, density: 0.0015,
     collisionFilter: { group: 0 }
   });
   b.homeX = x; b.homeY = y;
@@ -39,7 +39,7 @@ var bodies = chars.map(function (c, i) {
   var el = document.createElement('div');
   el.className = 'ch';
   el.textContent = c;
-  document.body.appendChild(el);
+  document.getElementById('band').appendChild(el);
   home.push(el);
   return b;
 });
@@ -54,8 +54,8 @@ document.addEventListener('pointermove', function (e) {
   if (sp < 1) return;
   bodies.forEach(function (b) {
     var d = Math.hypot(b.position.x - e.clientX, b.position.y - e.clientY);
-    if (d < 380) {
-      var f = 0.00022 * (1 - d / 380) * b.mass;
+    if (d < 300) {
+      var f = 0.00008 * (1 - d / 380) * b.mass;
       Body.applyForce(b, b.position, { x: vx * f, y: vy * f });
     }
   });
@@ -71,7 +71,7 @@ function reset() {
 }
 window.addEventListener('keydown', function (e) { if (e.key === 'r' || e.key === 'R') reset(); });
 
-var SPRING = 0.00006;
+var SPRING = 0.000025;   // 弱弹簧：重量压着它，只微微下沉
 var ANG_SPRING = 0.00035;
 var GRAV = 0;
 var MIN_D = 130;       // 两字中心的「挤」间距：小于它就互相推（允许 30% 左右重叠）
@@ -97,13 +97,13 @@ function frame() {
     // 角度也弹簧回位
     var da = b.homeAngle - b.angle;
     b.torque += da * ANG_SPRING * b.inertia;
-    b.angularVelocity *= 0.92;
+    b.angularVelocity *= 0.86;
   });
   Engine.update(engine, 1000 / 60);
   bodies.forEach(function (b, i) {
     var el = home[i];
     el.style.transform = 'translate(' + (b.position.x - SIZE / 2).toFixed(2) + 'px,' +
-      (b.position.y - SIZE / 2).toFixed(2) + 'px) rotate(' + b.angle.toFixed(4) + 'rad)';
+      (b.position.y - 193 - SIZE / 2).toFixed(2) + 'px) rotate(' + b.angle.toFixed(4) + 'rad)';
   });
   requestAnimationFrame(frame);
 }
