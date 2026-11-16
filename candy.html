@@ -44,18 +44,12 @@ var bodies = chars.map(function (c, i) {
   return b;
 });
 
-// 滚轮 → 字被震一下（她 2026-11-17 纠正：不是鼠标划过，是滚轮滚动才动）
-// 「沉重」= 冲量小、恢复慢、阻尼大
+// 滚轮 → 像刹车一样的前摇后摇（她 2026-11-17）
+// 不是给力，而是给一个「目标偏移」，字用二阶弹簧去追：追不到 → 前摇；追过头 → 后摇
+var offT = 0, off = 0, offV = 0;
 window.addEventListener('wheel', function (e) {
-  // 她 2026-11-17：只要 5px 左右的横向偏移，用来跟页面其他左右动效对上
   var d = Math.max(-70, Math.min(70, e.deltaY));
-  var k = 0.0000008;
-  bodies.forEach(function (b, i) {
-    Body.applyForce(b, b.position, { x: d * k * b.mass, y: 0 });
-    // 碰撞倾斜：字本来就不重叠、撞不起来，所以按滚动方向和幅度给一点角速度，
-    // 晃的时候各自歪几度再被角度弹簧拉回去（她 2026-11-17）
-    Body.setAngularVelocity(b, b.angularVelocity + d * 0.00026 * (i % 2 ? -1 : 1));
-  });
+  offT -= d * 0.13;          // 往滚动的反方向拖（刹车时人往前倾）
 }, { passive: true });
 
 function reset() {
@@ -74,6 +68,10 @@ var GRAV = 0;
 var MIN_D = 130;       // 两字中心的「挤」间距：小于它就互相推（允许 30% 左右重叠）
 var PUSH = 0.00016;
 function frame() {
+  offT *= 0.90;                        // 目标自己衰减回 0
+  var acc = (offT - off) * 0.11 - offV * 0.034;
+  offV += acc;
+  off += offV;
   // 软碰撞：字可以压着字，但压太深会被推开 —— 真刚体碰撞会让它们彻底分开，就没有「挤」了
   for (var a = 0; a < bodies.length; a++) {
     for (var c = a + 1; c < bodies.length; c++) {
@@ -99,8 +97,8 @@ function frame() {
   Engine.update(engine, 1000 / 60);
   bodies.forEach(function (b, i) {
     var el = home[i];
-    el.style.transform = 'translate(' + (b.position.x - SIZE / 2).toFixed(2) + 'px,' +
-      (b.position.y - 193 - SIZE / 2).toFixed(2) + 'px) rotate(' + b.angle.toFixed(4) + 'rad)';
+    el.style.transform = 'translate(' + (b.position.x + off - SIZE / 2).toFixed(2) + 'px,' +
+      (b.position.y - 193 - SIZE / 2).toFixed(2) + 'px) rotate(' + (b.angle + off * 0.0035).toFixed(4) + 'rad)';
   });
   requestAnimationFrame(frame);
 }
