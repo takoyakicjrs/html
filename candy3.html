@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>糖果标题 · 三版排版</title>
+<style>
+  @font-face {
+    font-family: "Chiron Heavy";
+    src: url("fonts/ChironHeavy-sub.woff2") format("woff2");
+    font-weight: 900;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; }
+  #band { position: absolute; left: 0; top: 193px; width: 100%; height: 419px; background: #FF009D; overflow: hidden; }
+  .ch {
+    position: absolute; left: 0; top: 0;
+    width: 190px; height: 190px; color: #fff;
+    font-family: "Chiron Heavy", "Social Sans", sans-serif;
+    font-size: 190px; line-height: 190px; font-weight: 900;
+    text-align: center; user-select: none; will-change: transform;
+  }
+  #sw { position: fixed; right: 18px; top: 14px; z-index: 9; display: flex; gap: 8px; }
+  #sw button {
+    font: 700 13px/1 monospace; padding: 7px 12px; cursor: pointer;
+    border: 1px solid #999; background: #fff; color: #333;
+  }
+  #sw button.on { background: #FF009D; border-color: #FF009D; color: #fff; }
+  #note { position: fixed; left: 24px; bottom: 16px; font: 12px/1.6 monospace; color: #999; }
+</style>
+</head>
+<body>
+<div id="band"></div>
+<div id="sw">
+  <button data-v="a" class="on">A 错位2×2</button>
+  <button data-v="b">B 斜线一列</button>
+  <button data-v="c">C 大角度差</button>
+</div>
+<div id="note">滚轮 = 刹车式前摇后摇 · 三版同一字体（昭源黑体 Heavy）</div>
+<script src="libs/matter.min.js"></script>
+<script>
+var Engine = Matter.Engine, Bodies = Matter.Bodies, Body = Matter.Body,
+    World = Matter.World, Events = Matter.Events;
+var SIZE = 190;
+var CHARS = ['红', '紫', '法', '典'];
+// 三版排版，都是「斜着」的延伸（她 2026-11-20）
+var LAYOUTS = {
+  a: { pos: [[232, 291], [422, 291], [232, 481], [422, 481]], ang: [40, 30, 15, 20], box: 176 },
+  b: { pos: [[170, 210], [290, 305], [410, 400], [530, 495]], ang: [32, 26, 20, 14], box: 145 },
+  c: { pos: [[232, 291], [422, 291], [232, 481], [422, 481]], ang: [52, 40, 28, 16], box: 176 }
+};
+var engine = Engine.create({ gravity: { x: 0, y: 0.3 } });
+var world = engine.world;
+var bodies = [], els = [];
+var bandEl = document.getElementById('band');
+
+function build(key) {
+  World.clear(world, false);
+  bodies = []; els = [];
+  bandEl.querySelectorAll('.ch').forEach(function (e) { e.remove(); });
+  var L = LAYOUTS[key];
+  CHARS.forEach(function (c, i) {
+    var el = document.createElement('div');
+    el.className = 'ch'; el.textContent = c;
+    bandEl.appendChild(el);
+    els.push(el);
+    var b = Bodies.rectangle(L.pos[i][0], L.pos[i][1], L.box, L.box, {
+      friction: 0.4, restitution: 0.15, frictionAir: 0.042, density: 0.0045,
+      collisionFilter: { group: 0 }
+    });
+    b.homeX = L.pos[i][0]; b.homeY = L.pos[i][1];
+    b.homeAngle = L.ang[i] * Math.PI / 180;
+    Body.setAngle(b, b.homeAngle);
+    bodies.push(b);
+    World.add(world, b);
+  });
+}
+
+// 滚轮 → 刹车式前摇后摇（二阶弹簧追目标偏移）
+var offT = 0, off = 0, offV = 0;
+window.addEventListener('wheel', function (e) {
+  var d = Math.max(-70, Math.min(70, e.deltaY));
+  offT -= d * 0.078;
+}, { passive: true });
+
+var SPRING = 0.000025, ANG_SPRING = 0.00035;
+function frame() {
+  offT *= 0.965;
+  var acc = (offT - off) * 0.013 - offV * 0.092;
+  offV += acc; off += offV;
+  bodies.forEach(function (b) {
+    Body.applyForce(b, b.position, {
+      x: (b.homeX - b.position.x) * SPRING * b.mass,
+      y: (b.homeY - b.position.y) * SPRING * b.mass
+    });
+    var da = b.homeAngle - b.angle;
+    b.torque += da * ANG_SPRING * b.inertia;
+    b.angularVelocity *= 0.86;
+  });
+  Engine.update(engine, 1000 / 60);
+  bodies.forEach(function (b, i) {
+    els[i].style.transform = 'translate(' +
+      (b.position.x + off - SIZE / 2).toFixed(2) + 'px,' +
+      (b.position.y - 193 - SIZE / 2).toFixed(2) + 'px) rotate(' +
+      (b.angle + off * 0.0035).toFixed(4) + 'rad)';
+  });
+  requestAnimationFrame(frame);
+}
+
+var cur = new URLSearchParams(location.search).get('v') || 'a';
+if (!LAYOUTS[cur]) cur = 'a';
+build(cur);
+document.querySelectorAll('#sw button').forEach(function (btn) {
+  if (btn.dataset.v === cur) { btn.classList.add('on'); } else { btn.classList.remove('on'); }
+  btn.addEventListener('click', function () {
+    cur = btn.dataset.v;
+    document.querySelectorAll('#sw button').forEach(function (x) { x.classList.toggle('on', x === btn); });
+    offT = off = offV = 0;
+    build(cur);
+  });
+});
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
