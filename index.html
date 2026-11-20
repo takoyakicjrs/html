@@ -137,6 +137,11 @@
     will-change: transform;
   }
 
+  @font-face { font-family: "Chiron Heavy"; src: url("fonts/ChironHeavy-sub.woff2") format("woff2"); font-weight: 900; }
+  /* 散排标题（她 2026-11-20 新参考图）：2×2 错位、逆时针小角度、紫最大、上下出血裁切 */
+  .label .name.scatter { writing-mode: horizontal-tb; position: relative; overflow: hidden; max-height: none; margin-top: 0; }
+  .label .name.scatter .tch { position: absolute; font-family: "Chiron Heavy", var(--title-font, sans-serif);
+                              font-weight: 900; text-align: center; color: inherit; will-change: transform; }
   .label { position: absolute; top: 0; height: 100%; will-change: transform; }
   .label .box { position: absolute; left: 0; top: 50%; transform: translateY(-50%); white-space: nowrap; }
   /* 颜色改成跟当前底色联动的变量：有底色的栏用白字，白底上自动换回深色 */
@@ -383,7 +388,7 @@
   // noColor: true = 这一栏先不上色（不参与配色轮转，条条不盖色、点开后底色用白），等清单来了再配。
   // colors  = 给「第 n 根」单独指定展开色（位置对齐 imgs，没写的往 5 色轮转里落）。
   var BLOCKS = [
-    { idx: '01', name: '红紫法典',              imgs: ['images/1.png', ''], colors: ['#274FE3'], bg: '#FF009D',   // 第 1 根 = 1.png；展开色取图里那个蓝；色带色 = 她给的 #FF009D
+    { idx: '01', name: '红紫法典', scatter: true, imgs: ['images/1.png', ''], colors: ['#274FE3'], bg: '#FF009D',   // 第 1 根 = 1.png；展开色取图里那个蓝；色带色 = 她给的 #FF009D
       sub: '年轻人之间流传着奇怪的传闻。\n——【红紫法典】。只要看一眼便能实现愿望的红色文字。\n它的内容仿佛是一个不可思议的恶作剧。\n前去执行任务的他们，尚不知晓这一切的真相。\nダブルクロス The 3rd Edition\n『Code Magenta【红紫法典】』\n双重十字——那是代表着背叛的字句。' },
     { idx: '02', name: '苍苍计划',              imgs: ['', ''], bg: '#00EAFF',   // 整页背景色 = 她给的 #00EAFF
       sub: 'UGN武上支部内的空气被焦躁所包围。\n无论使用什么手段，必须尽快采取措施。\n于是，你们被下达了一项任务。\n它被这样称呼。——【苍苍计划（Cobalt Plan）】。\nダブルクロス The 3rd Edition\n『Cobalt Plan【苍苍计划】』\n双重十字──那是代表着背叛的字句。' },
@@ -696,6 +701,23 @@
       var tInk = pickInk(b.bg || '#FFFFFF')[0];
       var nameEl = lb.querySelector('.name');
       nameEl.style.color = tInk;
+      // 散排（她 2026-11-20）：第一栏标题改成新参考图那种 2×2 错位散排，
+      // 四个字各自大小/逆时针小角度/上下出血；其余栏保持竖排不动。
+      if (b.scatter) {
+        var sy = vh / 805, sx = vw / 1410;
+        var SC = { x: [107, 305, 150, 375], y: [75, 130, 317, 337], s: [215, 260, 220, 240], a: [-10, -15, -18, -10] };
+        nameEl.classList.add('scatter');
+        nameEl.style.width = (500 * sx) + 'px';
+        nameEl.style.height = (vh * 0.52) + 'px';
+        var sh = '';
+        for (var ci = 0; ci < 4; ci++) {
+          var sz = SC.s[ci] * sy;
+          sh += '<span class="tch" style="left:' + (SC.x[ci] * sx - sz / 2).toFixed(1) + 'px;top:' + (SC.y[ci] * sy - sz / 2).toFixed(1) +
+                'px;width:' + sz.toFixed(1) + 'px;height:' + sz.toFixed(1) + 'px;font-size:' + sz.toFixed(1) + 'px;line-height:' + sz.toFixed(1) +
+                'px;transform:rotate(' + SC.a[ci] + 'deg)">' + b.name.charAt(ci) + '</span>';
+        }
+        nameEl.innerHTML = sh;
+      }
       labels.push({ el: lb, x: x0 + vw * LABEL_X, ink: tInk, nameEl: nameEl, dgs: lb.querySelectorAll('.idx .dg') });
 
       // 右边的条条
