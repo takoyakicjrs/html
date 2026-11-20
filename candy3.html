@@ -40,6 +40,7 @@
 var Engine = Matter.Engine, Bodies = Matter.Bodies, Body = Matter.Body,
     World = Matter.World, Events = Matter.Events;
 var SIZE = 190;
+var SIZES = [210, 180, 198, 170];   // 四字大小各有区分（她 2026-11-20），±10% 左右
 var CHARS = ['红', '紫', '法', '典'];
 // 三版排版，都是「斜着」的延伸（她 2026-11-20）
 var LAYOUTS = {
@@ -60,9 +61,12 @@ function build(key) {
   CHARS.forEach(function (c, i) {
     var el = document.createElement('div');
     el.className = 'ch'; el.textContent = c;
+    el.style.width = el.style.height = SIZES[i] + 'px';
+    el.style.fontSize = el.style.lineHeight = SIZES[i] + 'px';
     bandEl.appendChild(el);
     els.push(el);
-    var b = Bodies.rectangle(L.pos[i][0], L.pos[i][1], L.box, L.box, {
+    var bx = L.box * SIZES[i] / SIZE;
+    var b = Bodies.rectangle(L.pos[i][0], L.pos[i][1], bx, bx, {
       friction: 0.4, restitution: 0.15, frictionAir: 0.042, density: 0.0045,
       collisionFilter: { group: 0 }
     });
@@ -98,8 +102,8 @@ function frame() {
   Engine.update(engine, 1000 / 60);
   bodies.forEach(function (b, i) {
     els[i].style.transform = 'translate(' +
-      (b.position.x + off - SIZE / 2).toFixed(2) + 'px,' +
-      (b.position.y - 193 - SIZE / 2).toFixed(2) + 'px) rotate(' +
+      (b.position.x + off - SIZES[i] / 2).toFixed(2) + 'px,' +
+      (b.position.y - 193 - SIZES[i] / 2).toFixed(2) + 'px) rotate(' +
       (b.angle + off * 0.0035).toFixed(4) + 'rad)';
   });
   requestAnimationFrame(frame);
