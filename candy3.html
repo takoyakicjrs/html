@@ -33,6 +33,7 @@
   <button data-v="a" class="on">A 错位2×2</button>
   <button data-v="b">B 斜线一列</button>
   <button data-v="c">C 大角度差</button>
+  <button data-v="d">D 新参考</button>
 </div>
 <div id="note">滚轮 = 刹车式前摇后摇 · 三版同一字体（昭源黑体 Heavy）</div>
 <script src="libs/matter.min.js"></script>
@@ -46,7 +47,10 @@ var CHARS = ['红', '紫', '法', '典'];
 var LAYOUTS = {
   a: { pos: [[232, 291], [422, 291], [232, 481], [422, 481]], ang: [40, 30, 15, 20], box: 176 },
   b: { pos: [[170, 210], [290, 305], [410, 400], [530, 495]], ang: [32, 26, 20, 14], box: 145 },
-  c: { pos: [[232, 291], [422, 291], [232, 481], [422, 481]], ang: [52, 40, 28, 16], box: 176 }
+  c: { pos: [[232, 291], [422, 291], [232, 481], [422, 481]], ang: [52, 40, 28, 16], box: 176 },
+  // D：她 2026-11-20 新参考图 —— 逆时针小角度、紫最大、上下出血裁切、字块占宽 35-40%
+  d: { pos: [[183, 268], [381, 315], [226, 510], [451, 530]], ang: [-10, -15, -18, -10], box: 130,
+       sizes: [215, 260, 220, 240] }
 };
 var engine = Engine.create({ gravity: { x: 0, y: 0.3 } });
 var world = engine.world;
@@ -58,19 +62,20 @@ function build(key) {
   bodies = []; els = [];
   bandEl.querySelectorAll('.ch').forEach(function (e) { e.remove(); });
   var L = LAYOUTS[key];
+  var SZ = L.sizes || SIZES;
   CHARS.forEach(function (c, i) {
     var el = document.createElement('div');
     el.className = 'ch'; el.textContent = c;
-    el.style.width = el.style.height = SIZES[i] + 'px';
-    el.style.fontSize = el.style.lineHeight = SIZES[i] + 'px';
+    el.style.width = el.style.height = SZ[i] + 'px';
+    el.style.fontSize = el.style.lineHeight = SZ[i] + 'px';
     bandEl.appendChild(el);
     els.push(el);
-    var bx = L.box * SIZES[i] / SIZE;
+    var bx = L.box * SZ[i] / SIZE;
     var b = Bodies.rectangle(L.pos[i][0], L.pos[i][1], bx, bx, {
       friction: 0.4, restitution: 0.15, frictionAir: 0.042, density: 0.0045,
       collisionFilter: { group: 0 }
     });
-    b.homeX = L.pos[i][0]; b.homeY = L.pos[i][1];
+    b.homeX = L.pos[i][0]; b.homeY = L.pos[i][1]; b.sz = SZ[i];
     b.homeAngle = L.ang[i] * Math.PI / 180;
     Body.setAngle(b, b.homeAngle);
     bodies.push(b);
@@ -102,8 +107,8 @@ function frame() {
   Engine.update(engine, 1000 / 60);
   bodies.forEach(function (b, i) {
     els[i].style.transform = 'translate(' +
-      (b.position.x + off - SIZES[i] / 2).toFixed(2) + 'px,' +
-      (b.position.y - 193 - SIZES[i] / 2).toFixed(2) + 'px) rotate(' +
+      (b.position.x + off - b.sz / 2).toFixed(2) + 'px,' +
+      (b.position.y - 193 - b.sz / 2).toFixed(2) + 'px) rotate(' +
       (b.angle + off * 0.0035).toFixed(4) + 'rad)';
   });
   requestAnimationFrame(frame);
